@@ -1,0 +1,11 @@
+mod = [
+	"GiveWeaponPlus"
+]
+
+package = [
+	"resource_packages/GiveWeaponPlus/GiveWeaponPlus"
+]
+
+lua = [
+	"scripts/mods/GiveWeaponPlus/*"
+]
