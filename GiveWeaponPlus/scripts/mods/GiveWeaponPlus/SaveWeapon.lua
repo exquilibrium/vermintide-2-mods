@@ -397,6 +397,18 @@ mod.delete_item = function(self, backend_id)
 	mod.saved_items[save_id] = nil
 	mod:set("saved_items", mod.saved_items)
 
+	-- Forget this item was equipped anywhere, so a future session doesn't try to re-equip a
+	-- weapon that's been deleted (it's gone from saved_items above too, so there'd be nothing
+	-- for set_equipped_items_on_startup to even recreate -- just a stale "invalid ID" error).
+	for _, slots in pairs(mod.last_equipped_items) do
+		for slot_name, equipped_backend_id in pairs(slots) do
+			if equipped_backend_id == backend_id then
+				slots[slot_name] = nil
+			end
+		end
+	end
+	mod:set("last_equipped_items", mod.last_equipped_items)
+
 	mod:pcall(function()
 		-- We check if we're in the Item Grid view - if yes, refresh the item backend and repopulate the inventory page
 		if mod.item_grid then
@@ -719,7 +731,13 @@ mod.set_equipped_items_on_startup = function(self)
 	-- Loop through all career names and lots
 	for career_name, slots in pairs(mod.last_equipped_items) do
 		for slot_name, backend_id in pairs(slots) do
-			if mod:verify_backend_id(backend_id) then
+			-- Only mod-created items should ever end up here (see the set_loadout_item hook below),
+			-- but skip official realm items just in case an older save still has some on file --
+			-- their backend IDs aren't stable across Steam accounts, so blindly re-equipping one
+			-- risks equipping a completely different item that happens to share the same ID.
+			if not mod:is_backend_id_from_mod(backend_id) then
+				-- skip silently, not an error -- just a leftover from an older mod version
+			elseif mod:verify_backend_id(backend_id) then
 				backend_items:set_loadout_item(backend_id, career_name, slot_name)
 			else
 				mod:echo("[SaveWeapon][ERROR] Previous session's equipped item ID is invalid (" .. career_name .. ": " .. backend_id .. ")")
@@ -746,13 +764,17 @@ mod:hook_safe(BackendManagerPlayFab, "_create_interfaces", function(...)
 	-- Its purpose is to see when an item is equipped so we can save its ID and re-equip it on next game launch
 	local backend_items = Managers.backend:get_interface("items")
 	mod:hook_safe(backend_items, "set_loadout_item", function(self, backend_id, career_name, slot_name)
-		-- Track last equipped item's backend ID
-		if not mod.last_equipped_items[career_name] then
-			mod.last_equipped_items[career_name] = {}
-		end
-		mod.last_equipped_items[career_name][slot_name] = backend_id
+		-- Only track mod-created items -- official realm items' backend IDs aren't stable across
+		-- Steam accounts (a different account's item can legitimately reuse the same ID), so
+		-- remembering and re-equipping one on next launch risks equipping the wrong item entirely.
+		if mod:is_backend_id_from_mod(backend_id) then
+			if not mod.last_equipped_items[career_name] then
+				mod.last_equipped_items[career_name] = {}
+			end
+			mod.last_equipped_items[career_name][slot_name] = backend_id
 
-		mod:set("last_equipped_items", mod.last_equipped_items)
+			mod:set("last_equipped_items", mod.last_equipped_items)
+		end
 	end)
 
 	-- Disable this hook after it has served its use (probably not necessary since I don't think the function ever runs again)

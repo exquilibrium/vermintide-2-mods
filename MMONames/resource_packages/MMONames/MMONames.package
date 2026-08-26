@@ -1,0 +1,16 @@
+mod = [
+	"MMONames"
+]
+
+package = [
+	"resource_packages/MMONames/MMONames"
+]
+
+lua = [
+	"scripts/mods/MMONames/*"
+	"atlases/mods/MMONames/*"
+]
+
+material = [
+  "materials/mods/MMONames/*"
+]

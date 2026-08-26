@@ -25,7 +25,10 @@
 	-- but that repo's src/lib/data/legacy/* files are a faithful port of that older site's
 	static id tables (verified empirically: weapon id 14 in an example link renders as "Mace",
 	i.e. es_1h_mace, matching WeaponsDataMap.ts exactly), so those are the tables baked in below.
-	Skins are never part of any ranalds.gift link format, so imported items never get one.
+	Skins are never part of any ranalds.gift link format, so newly-crafted weapons instead get a
+	random skin from their own skin_combination_table (same pool as GiveWeaponPlus's own "random
+	skin" option); items reused from your inventory or from an already-saved craft keep whatever
+	skin they already have.
 
 ]]--
 
@@ -37,32 +40,37 @@ mod.ranalds_careers = {
 	[4] = "dr_ranger", [5] = "dr_ironbreaker", [6] = "dr_slayer", [17] = "dr_engineer",
 	[7] = "we_waywatcher", [8] = "we_maidenguard", [9] = "we_shade", [18] = "we_thornsister",
 	[10] = "wh_captain", [11] = "wh_bountyhunter", [12] = "wh_zealot", [19] = "wh_priest",
-	[13] = "bw_adept", [14] = "bw_scholar", [15] = "bw_unchained", [20] = "bw_necro",
+	[13] = "bw_adept", [14] = "bw_scholar", [15] = "bw_unchained", [20] = "bw_necromancer",
 }
 
 -- weaponId -> VT2 item_type (ranalds.gift2-main: src/lib/data/legacy/WeaponsDataMap.ts)
+-- NOTE: values are the ItemMasterList *item_type* field, which for several weapons differs from
+-- the ItemMasterList *key* the game happens to store that entry under (e.g. key "dr_shield_axe"
+-- has item_type "dr_1h_axe_shield") -- verified entry-by-entry against item_master_list_exported.lua
+-- and the DLC item_master_list_*.lua files, since find_item_key_for_career (below) matches on
+-- item.item_type, not on the ItemMasterList key.
 mod.ranalds_weapons = {
-	[1] = "bw_1h_mace", [2] = "bw_dagger", [3] = "bw_flame_sword", [4] = "bw_sword",
-	[5] = "dr_1h_axe", [6] = "dr_1h_hammer", [7] = "dr_2h_axe", [8] = "dr_2h_hammer", [9] = "dr_2h_pick",
-	[10] = "dr_dual_wield_axes", [11] = "dr_shield_axe", [12] = "dr_shield_hammer",
-	[13] = "es_1h_flail", [14] = "es_1h_mace", [15] = "es_1h_sword", [16] = "es_2h_hammer", [17] = "es_2h_sword",
-	[18] = "es_2h_sword_executioner", [19] = "es_halberd", [20] = "es_mace_shield", [21] = "es_sword_shield",
-	[22] = "we_1h_sword", [23] = "we_2h_axe", [24] = "we_2h_sword", [25] = "we_dual_wield_daggers",
-	[26] = "we_dual_wield_sword_dagger", [27] = "we_dual_wield_swords", [28] = "we_spear",
-	[29] = "wh_1h_axe", [30] = "wh_1h_falchion", [31] = "wh_2h_sword", [32] = "wh_fencing_sword",
+	[1] = "bw_morningstar", [2] = "bw_1h_dagger", [3] = "bw_flame_sword", [4] = "bw_1h_sword",
+	[5] = "dr_1h_axes", [6] = "dr_1h_hammer", [7] = "dr_2h_axes", [8] = "dr_2h_hammer", [9] = "dr_2h_picks",
+	[10] = "dr_dual_axes", [11] = "dr_1h_axe_shield", [12] = "dr_1h_hammer_shield",
+	[13] = "es_flail", [14] = "es_1h_mace", [15] = "es_1h_sword", [16] = "es_2h_war_hammer", [17] = "es_2h_sword",
+	[18] = "es_2h_sword_executioner", [19] = "es_2h_halberd", [20] = "es_1h_mace_shield", [21] = "es_1h_sword_shield",
+	[22] = "ww_1h_sword", [23] = "ww_2h_axe", [24] = "ww_2h_sword", [25] = "ww_dual_daggers",
+	[26] = "ww_sword_and_dagger", [27] = "ww_dual_swords", [28] = "we_2h_spear",
+	[29] = "wh_1h_axes", [30] = "wh_1h_falchions", [31] = "wh_2h_sword", [32] = "wh_fencing_sword",
 	[33] = "es_dual_wield_hammer_sword", [34] = "es_2h_heavy_spear", [35] = "we_1h_axe", [36] = "we_1h_spears_shield",
 	[37] = "dr_dual_wield_hammers", [38] = "wh_dual_wield_axe_falchion", [39] = "wh_2h_billhook",
-	[40] = "bw_1h_crowbill", [41] = "bw_1h_flail_flaming", [42] = "es_sword_shield_breton", [43] = "es_bastard_sword",
-	[44] = "dr_2h_cog_hammer", [45] = "bw_skullstaff_beam", [46] = "bw_skullstaff_fireball",
-	[47] = "bw_skullstaff_flamethrower", [48] = "bw_skullstaff_geiser", [49] = "bw_skullstaff_spear",
-	[50] = "dr_crossbow", [51] = "dr_drake_pistol", [52] = "dr_drakegun", [53] = "dr_handgun", [54] = "dr_rakegun",
-	[55] = "es_blunderbuss", [56] = "es_handgun", [57] = "es_longbow", [58] = "es_repeating_handgun",
-	[59] = "we_crossbow_repeater", [60] = "we_longbow", [61] = "we_shortbow", [62] = "we_shortbow_hagbane",
-	[63] = "wh_brace_of_pistols", [64] = "wh_crossbow", [65] = "wh_crossbow_repeater", [66] = "wh_repeating_pistols",
+	[40] = "bw_1h_crowbill", [41] = "bw_1h_flail_flaming", [42] = "es_1h_sword_shield_breton", [43] = "es_bastard_sword",
+	[44] = "dr_cog_hammer", [45] = "bw_staff_beam", [46] = "bw_staff_firball",
+	[47] = "bw_staff_flamethrower", [48] = "bw_staff_geiser", [49] = "bw_staff_spear",
+	[50] = "dr_crossbow", [51] = "dr_drakefire_pistols", [52] = "dr_drakegun", [53] = "dr_handgun", [54] = "dr_grudgeraker",
+	[55] = "es_blunderbuss", [56] = "es_handgun", [57] = "ww_longbow", [58] = "es_repeating_handgun",
+	[59] = "wh_repeating_crossbow", [60] = "ww_longbow", [61] = "ww_shortbow", [62] = "ww_hagbane",
+	[63] = "wh_brace_of_pisols", [64] = "wh_crossbow", [65] = "wh_repeating_crossbow", [66] = "wh_repeating_pistol",
 	[67] = "dr_1h_throwing_axes", [68] = "dr_steam_pistol", [69] = "es_deus_01", [70] = "dr_deus_01",
 	[71] = "we_deus_01", [72] = "wh_deus_01", [73] = "bw_deus_01", [74] = "we_life_staff", [75] = "we_javelin",
 	[76] = "wh_1h_hammer", [77] = "wh_2h_hammer", [78] = "wh_hammer_shield", [79] = "wh_dual_hammer",
-	[80] = "wh_hammer_book", [81] = "wh_flail_shield", [82] = "bw_reaper", [83] = "bw_soulsteal",
+	[80] = "wh_hammer_book", [81] = "wh_flail_shield", [82] = "bw_ghost_scythe", [83] = "bw_necromancy_staff",
 }
 
 -- property category (ranalds.gift2-main: src/lib/data/legacy/Properties.ts) -> {id -> VT2 property key}.
@@ -230,9 +238,33 @@ mod.resolve_slot_item = function(self, item_type, career_name, property_ids, tra
 
 	return {
 		item_key = item_key,
+		item = item,
 		property_keys = property_keys,
 		trait_key = trait_key,
 	}
+end
+
+-- Picks a random skin key from an item's own skin_combination_table, the same pool
+-- mod.create_weapon's "random skin" option draws from (see GiveWeaponPlus.lua). Necklace/ring/
+-- trinket entries have no skin_combination_table (each cosmetic variant is its own ItemMasterList
+-- key instead, already baked into item_key), so this returns nil for those -- same as picking
+-- "no skin" -- rather than crafting fails.
+mod.get_random_skin_for_item = function(self, item)
+	if not item.skin_combination_table then
+		return nil
+	end
+
+	local all_skins = {}
+	for _, combo in pairs(WeaponSkins.skin_combinations[item.skin_combination_table]) do
+		for _, skin_key in ipairs(combo) do
+			table.insert(all_skins, skin_key)
+		end
+	end
+	if #all_skins == 0 then
+		return nil
+	end
+
+	return all_skins[math.random(#all_skins)]
 end
 
 
@@ -312,13 +344,13 @@ end
 --	# CRAFTING WITH DEDUP #
 --	¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯
 
--- Crafts an item with the given trait/properties, reusing an already-saved one if an identical
--- item (same item_key, same trait+properties) has already been crafted and saved. Returns the
--- item's backend_id and whether it was newly crafted (false if reused).
-mod.craft_or_reuse_item = function(self, item_key, trait_key, property_keys)
+-- Crafts an item with the given trait/properties/skin, reusing an already-saved one if an
+-- identical item (same item_key, same trait+properties+skin) has already been crafted and saved.
+-- Returns the item's backend_id and whether it was newly crafted (false if reused).
+mod.craft_or_reuse_item = function(self, item_key, trait_key, property_keys, skin)
 	-- generate_item_string concatenates the (shortened) trait name directly, which errors on a
 	-- nil trait -- pass "" instead, which round-trips safely (just resolves to "no trait" on load).
-	local savestring = mod:generate_item_string(nil, trait_key or "", property_keys)
+	local savestring = mod:generate_item_string(skin, trait_key or "", property_keys)
 
 	for save_id, existing_savestring in pairs(mod.saved_items) do
 		if existing_savestring == savestring then
@@ -484,7 +516,8 @@ mod.import_ranalds_build = function(self, link)
 			slot.backend_id = owned_backend_id
 			owned_count = owned_count + 1
 		else
-			local backend_id, was_new = mod:craft_or_reuse_item(slot.item_key, slot.trait_key, slot.property_keys)
+			local skin = mod:get_random_skin_for_item(slot.item)
+			local backend_id, was_new = mod:craft_or_reuse_item(slot.item_key, slot.trait_key, slot.property_keys, skin)
 			if not backend_id then
 				mod:echo("[GiveWeaponPlus] Import failed: couldn't craft \"" .. slot.item_key .. "\".")
 				return

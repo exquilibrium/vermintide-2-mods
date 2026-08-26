@@ -1,0 +1,11 @@
+mod = [
+	"SkipEndOfLevelLoot"
+]
+
+package = [
+	"resource_packages/SkipEndOfLevelLoot/SkipEndOfLevelLoot"
+]
+
+lua = [
+	"scripts/mods/SkipEndOfLevelLoot/*"
+]
