@@ -10,6 +10,14 @@ return {
 			.."\nUses the game's own built-in over-the-shoulder third person camera, which keeps working correctly through attacking, aiming, and blocking.",
 	},
 
+	toggle_shoulder_side_keybind = {
+		en = "Toggle shoulder side",
+	},
+	toggle_shoulder_side_keybind_tooltip = {
+		en = "Switch the third person camera between the left and right shoulder."
+			.."\nIf the Default Camera Position below is currently set to Center, this switches it to the right shoulder.",
+	},
+
 	camera_settings_group = {
 		en = "Camera Settings",
 	},

@@ -67,6 +67,48 @@ it only fires for the local player, so no extra filtering is needed.
 so both the keybind path and this automatic reapply path share the exact
 same unit-specific logic.
 
+## Blocking the toggle while dead/waiting for rescue (`toggle_third_person_pressed`)
+
+User request: don't let the toggle keybind switch third person on/off while
+the player is dead or waiting for rescue. "Waiting for rescue" isn't a
+guess at terminology - confirmed by reading vanilla's own
+`scripts/ui/hud_ui/wait_for_rescue_ui.lua`, which shows a
+`"waiting_to_be_rescued"` HUD text gated on exactly
+`status_extension:is_ready_for_assisted_respawn()` - the same check used
+here. Combined with `is_dead()` for the fully-dead/ghost-mode case.
+
+The check lives in `toggle_third_person_pressed` itself (the keybind
+handler), not in `mod.set_third_person_active` - that function needs to
+stay unconditionally reliable for the cleanup/reapply paths that call it
+programmatically (`mod.on_disabled`, and indirectly the level-start reapply
+hook via `apply_third_person_to_unit`), which should never be blocked
+regardless of the player's status. Blocks the toggle **uniformly in both
+directions** (won't turn on OR off while dead/waiting for rescue) rather
+than only blocking activation - simplest reading of "switching... should
+be blocked," and avoids the asymmetry of a player who died while already
+in third person suddenly being unable to turn it back off.
+
+## Shoulder-side toggle keybind (`toggle_shoulder_side_keybind`, `toggle_shoulder_side_pressed`)
+
+A second, independent global keybind (same widget shape as the third-person
+toggle: `type = "keybind"`, `keybind_global = true`, `keybind_trigger =
+"pressed"`, `keybind_type = "function_call"`) that flips the existing
+`camera_shoulder_side` dropdown setting between `"left"` and `"right"` -
+`mod:set("camera_shoulder_side", ...)`, the same persistence mechanism as
+changing the dropdown by hand in the options menu. No new camera logic
+needed: `get_camera_offset` already reads `camera_shoulder_side` fresh
+every frame, so the flip takes effect immediately without any extra
+refresh/reapply step, the same way manually changing the dropdown already
+does live.
+
+`"center"` is treated the same as `"right"` for this toggle (i.e. pressing
+it while centered goes to `"right"`) - a plain two-state left/right toggle
+has no natural third branch to cycle through `"center"` as well, and
+`"right"` is the setting's own default, making it a reasonable landing
+spot. Not gated on `mod.third_person_active` or the dead/waiting-for-rescue
+check above - it's a harmless settings change either way, unlike the
+third-person toggle itself which has actual camera-state side effects.
+
 ## Camera position (`TransformCamera.update` hook)
 
 The camera's shoulder offset (`over_shoulder`) is a `TransformCamera` node

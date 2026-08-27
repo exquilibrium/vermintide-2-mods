@@ -19,6 +19,16 @@ mod_data.options = {
 			function_name = "toggle_third_person_pressed",
 		},
 		{
+			setting_id = "toggle_shoulder_side_keybind",
+			type = "keybind",
+			tooltip = "toggle_shoulder_side_keybind_tooltip",
+			default_value = {},
+			keybind_global = true,
+			keybind_trigger = "pressed",
+			keybind_type = "function_call",
+			function_name = "toggle_shoulder_side_pressed",
+		},
+		{
 			setting_id = "camera_settings_group",
 			type = "group",
 			sub_widgets = {

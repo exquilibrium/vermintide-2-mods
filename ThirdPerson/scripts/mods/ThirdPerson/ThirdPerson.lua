@@ -212,8 +212,37 @@ mod.set_third_person_active = function (self, active)
 	end
 end
 
+-- Blocks the toggle keybind specifically (not mod.set_third_person_active
+-- itself, which stays unconditionally reliable for cleanup/reapply paths
+-- like mod.on_disabled and the level-start reapply hook) while the player
+-- is dead or waiting for rescue - confirmed via vanilla's own
+-- "wait_for_rescue_ui.lua" that "waiting for rescue" is exactly
+-- is_ready_for_assisted_respawn(), the same state its "waiting_to_be_rescued"
+-- HUD text is gated on. See README.md ("Blocking the toggle while
+-- dead/waiting for rescue").
 mod.toggle_third_person_pressed = function ()
+	local player = Managers.player and Managers.player:local_player()
+	local unit = player and player.player_unit
+	local status_extension = unit and ScriptUnit.has_extension(unit, "status_system")
+
+	if status_extension and (status_extension:is_dead() or status_extension:is_ready_for_assisted_respawn()) then
+		return
+	end
+
 	mod:set_third_person_active(not mod.third_person_active)
+end
+
+-- Flips camera_shoulder_side between "left" and "right" - "center" is
+-- treated the same as "right" (i.e. pressed while centered goes to
+-- "right"), since a plain left/right toggle has no natural third state to
+-- cycle through. mod:set persists it exactly like changing the dropdown in
+-- the options menu would, and get_camera_offset (read every frame while
+-- third_person_active) picks it up immediately - no extra refresh needed.
+mod.toggle_shoulder_side_pressed = function ()
+	local current_side = mod:get("camera_shoulder_side")
+	local next_side = (current_side == "left") and "right" or "left"
+
+	mod:set("camera_shoulder_side", next_side)
 end
 
 -- Fakes the game's dev-only third-person flag so vanilla camera/zoom code
