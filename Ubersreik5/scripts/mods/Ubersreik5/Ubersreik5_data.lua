@@ -10,7 +10,7 @@ return {
 				type = "numeric",
 				setting_id = "extend",
 				notify_mod = true,
-				default_value = 17,
+				default_value = 15,
 				decimals_number = 0,
 				unit_text = "unit_text_empty",
 				range = {

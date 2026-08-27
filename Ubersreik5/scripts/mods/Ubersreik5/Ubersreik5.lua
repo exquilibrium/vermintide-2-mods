@@ -19,6 +19,17 @@ mod:hook_safe(StateIngame, "on_enter", function (self)
 	end
 end)
 
+-- Restarting a map (vote retry, esc-menu retry, checkpoint retry - all
+-- roads lead through LevelTransitionHandler.reload_level) reuses the same
+-- StateIngame instance instead of exiting/re-entering it, so the on_enter
+-- reset above never fires and stats from the previous attempt would
+-- otherwise carry over.
+mod:hook_safe(LevelTransitionHandler, "reload_level", function (self, ...)
+	if PlayerScores ~= nil then
+		PlayerScores = {}
+	end
+end)
+
 -- Party/lobby/matchmaking capacity. These run immediately at mod-load
 -- time (not inside a hook), so MAX_PLAYERS must already be set above.
 MechanismSettings.adventure.party_data.heroes.num_slots = MAX_PLAYERS

@@ -197,7 +197,7 @@ mod:hook(UISceneGraph, "init_scenegraph", function (func, scenegraph_def, ...)
 		-- the engine instead of an assumed 1080. player_frame_i (portraits) and
 		-- the level icon attach "top" further down this same parent chain, so
 		-- they inherit this fixed position automatically.
-		local TOP_OFFSET = -300
+		local TOP_OFFSET = -220
 
 		scenegraph_def.scores_topics.horizontal_alignment = "center"
 		scenegraph_def.scores_topics.vertical_alignment = "top"

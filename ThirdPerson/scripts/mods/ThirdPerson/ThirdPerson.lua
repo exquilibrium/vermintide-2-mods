@@ -1,0 +1,656 @@
+local mod = get_mod("ThirdPerson")
+
+-- Toggles a persistent third-person camera with configurable position and
+-- "turn" (look around without changing where you actually aim) offsets.
+-- See README.md at the mod root for the full design log: why each fix
+-- exists, what was tried and failed first, and how the pieces interact.
+
+mod.third_person_active = false
+
+-- TransformCamera nodes whose position we override to match our camera
+-- settings. Only "over_shoulder" is ever actually activated by this mod
+-- now (see the set_zooming/switch_variable_zoom hooks below - zoom is
+-- entirely mod-owned, not vanilla's own zoom-tier nodes) - the other three
+-- are kept here only in case some other, untouched mechanic still
+-- activates them directly. See README.md ("Camera position").
+mod.OFFSET_NODE_NAMES = {
+	over_shoulder = true,
+	zoom_in_third_person = true,
+	increased_zoom_in_third_person = true,
+	zoom_in_trueflight_third_person = true,
+}
+
+mod.get_camera_offset = function (self)
+	local side = self:get("camera_shoulder_side")
+	local sign = (side == "left" and -1) or (side == "right" and 1) or 0
+	local x = sign * self:get("camera_x_position")
+	local y = self:get("camera_distance")
+	local z = self:get("camera_y_position")
+
+	-- Plain table, not Vector3() - see README.md ("Camera position") for why
+	-- holding a real engine Vector3 here indefinitely crashes TransformCamera.
+	return {x = x, y = y, z = z}
+end
+
+-- Destination value for how much to subtract from camera_distance right
+-- now - 0 unless actively aiming a ranged weapon (mod._is_aiming, tracked
+-- by the set_zooming hook below). Weapon special zoom REPLACES the regular
+-- zoom amount while active rather than adding to it, matching how the two
+-- settings are presented as independent alternatives, not stacking
+-- bonuses. See get_smoothed_zoom_distance_reduction below for the actual
+-- value used each frame - this only computes where it's headed, not the
+-- eased value. See README.md ("Camera position").
+mod.get_zoom_distance_reduction_target = function (self)
+	if not self._is_aiming then
+		return 0
+	end
+
+	if self._weapon_special_zoom_active then
+		if self:get("camera_weapon_special_zoom_enabled") then
+			return self:get("camera_weapon_special_zoom_amount")
+		end
+
+		return 0
+	end
+
+	if self:get("camera_zoom_enabled") then
+		return self:get("camera_zoom_amount")
+	end
+
+	return 0
+end
+
+-- Eases self._ease_state[key]'s value toward `target` over `duration`
+-- seconds instead of snapping instantly - shared by every per-zoom-state
+-- value this mod smooths (distance-zoom reduction, FOV below). Same
+-- start-value/start-time tracking as the original
+-- get_camera_blend pattern, generalized to an arbitrary numeric target and
+-- keyed so multiple independent values can each track their own transition
+-- without stepping on each other. Safe to call more than once per frame for
+-- the same key (e.g. from both apply_recoil and _update_camera_properties)
+-- since it's a pure recompute from stored state, not an accumulator - it
+-- returns the same value every time within the same frame. See README.md
+-- ("Camera position").
+mod.ease_toward = function (self, key, target, duration)
+	local state = self._ease_state
+
+	if not state then
+		state = {}
+		self._ease_state = state
+	end
+
+	local entry = state[key]
+	local now = Managers.time:time("main")
+
+	if not entry then
+		entry = {value = target, target = target, start_value = target, start_time = now}
+		state[key] = entry
+	elseif entry.target ~= target then
+		entry.target = target
+		entry.start_value = entry.value
+		entry.start_time = now
+	end
+
+	local t = duration > 0 and math.clamp((now - entry.start_time) / duration, 0, 1) or 1
+
+	entry.value = entry.start_value + (target - entry.start_value) * t
+
+	return entry.value
+end
+
+-- Eases toward get_zoom_distance_reduction_target over the configured
+-- camera_zoom_speed (seconds) instead of snapping instantly - covers all
+-- three transitions (no zoom <-> zoomed, zoomed <-> weapon special zoom,
+-- and un-aiming). See README.md ("Camera position").
+mod.get_smoothed_zoom_distance_reduction = function (self)
+	return self:ease_toward("zoom_distance_reduction", self:get_zoom_distance_reduction_target(), self:get("camera_zoom_speed"))
+end
+
+-- Destination vertical FOV (radians) for the current zoom state - one of
+-- three independent settings the user configures directly (unzoomed,
+-- zoomed, weapon special "extra zoomed"), not derived from the distance-zoom
+-- settings above. See README.md ("Camera position").
+mod.get_fov_radians_target = function (self)
+	local degrees
+
+	if not self._is_aiming then
+		degrees = self:get("camera_fov_unzoomed")
+	elseif self._weapon_special_zoom_active then
+		degrees = self:get("camera_fov_extra_zoomed")
+	else
+		degrees = self:get("camera_fov_zoomed")
+	end
+
+	return degrees * math.pi / 180
+end
+
+-- Eases toward get_fov_radians_target over the same camera_zoom_speed
+-- duration as the distance-zoom smoothing above, so both effects of
+-- "zooming in" transition in lockstep.
+mod.get_smoothed_fov_radians = function (self)
+	return self:ease_toward("fov_radians", self:get_fov_radians_target(), self:get("camera_zoom_speed"))
+end
+
+mod.get_camera_yaw_radians = function (self)
+	local degrees_to_radians = math.pi / 180
+
+	return self:get("camera_turn_horizontal") * degrees_to_radians
+end
+
+mod.get_camera_pitch_radians = function (self)
+	local degrees_to_radians = math.pi / 180
+
+	return self:get("camera_turn_vertical") * degrees_to_radians
+end
+
+-- Shared camera lookup - see README.md ("Refactor notes").
+mod.get_owner_camera = function (self, owner_unit, world)
+	local player = Managers.player:owner(owner_unit)
+	local viewport = ScriptWorld.viewport(world, player.viewport_name)
+
+	return ScriptViewport.camera(viewport)
+end
+
+-- Applies the turn to a rotation: yaw pre-multiplied (world-space, immune to
+-- current pitch), pitch post-multiplied (local-space, roll-free on its own).
+-- See README.md ("Turn composition math") for the full derivation of why
+-- this specific split is necessary. Pass pitch = 0 for yaw-only callers.
+mod.apply_turn_to_rotation = function (self, rotation, yaw, pitch)
+	if yaw == 0 and pitch == 0 then
+		return rotation
+	end
+
+	local yaw_rotation = Quaternion(Vector3.up(), yaw)
+	local pitch_rotation = Quaternion(Vector3.right(), pitch)
+	local yawed_rotation = Quaternion.multiply(yaw_rotation, rotation)
+
+	return Quaternion.multiply(yawed_rotation, pitch_rotation)
+end
+
+-- Exact algebraic inverse of apply_turn_to_rotation above - must always
+-- match it or this reopens the aim-contamination bug apply_recoil prevents.
+mod.strip_turn_from_rotation = function (self, rotation, yaw, pitch)
+	if yaw == 0 and pitch == 0 then
+		return rotation
+	end
+
+	local inverse_yaw_rotation = Quaternion.inverse(Quaternion(Vector3.up(), yaw))
+	local inverse_pitch_rotation = Quaternion.inverse(Quaternion(Vector3.right(), pitch))
+
+	return Quaternion.multiply(Quaternion.multiply(inverse_yaw_rotation, rotation), inverse_pitch_rotation)
+end
+
+-- Blend factor (0 = fully suppressed, 1 = fully applied) for fading BOTH
+-- the position offset and the turn in/out around the "heal_self"
+-- exclusion, instead of snapping them on/off the instant the camera node
+-- changes. Shared by TransformCamera.update (position) and
+-- _update_camera_properties (rotation) so the two fade in lockstep rather
+-- than at different rates. See README.md ("Turn composition math").
+mod.get_camera_blend = function (self, suppressed)
+	local target = suppressed and 0 or 1
+	local now = Managers.time:time("main")
+
+	if self._camera_blend_target ~= target then
+		self._camera_blend_target = target
+		self._camera_blend_start_value = self._camera_blend_value or target
+		self._camera_blend_start_time = now
+	end
+
+	local duration = CameraTransitionSettings.perspective_transition_time
+	local t = duration > 0 and math.clamp((now - self._camera_blend_start_time) / duration, 0, 1) or 1
+	local blend = self._camera_blend_start_value + (target - self._camera_blend_start_value) * t
+
+	self._camera_blend_value = blend
+
+	return blend
+end
+
+-- Applies third person to a specific unit/player - shared by the toggle
+-- handler below and the level-start reapply hook further down, since a
+-- fresh player_unit (new map, character switch, mid-level respawn) always
+-- starts back in first person and needs this re-asserted explicitly.
+mod.apply_third_person_to_unit = function (self, player, unit)
+	local first_person_extension = ScriptUnit.extension(unit, "first_person_system")
+
+	-- Re-trigger the camera state so the Development.parameter hook below
+	-- can redirect it immediately instead of waiting for the next transition.
+	CharacterStateHelper.change_camera_state(player, "follow")
+	first_person_extension:set_first_person_mode(false)
+end
+
+mod.set_third_person_active = function (self, active)
+	if self.third_person_active == active then
+		return
+	end
+
+	local player = Managers.player and Managers.player:local_player()
+	local unit = player and player.player_unit
+
+	if not unit or not ScriptUnit.has_extension(unit, "first_person_system") then
+		return
+	end
+
+	self.third_person_active = active
+
+	if active then
+		self:apply_third_person_to_unit(player, unit)
+	else
+		CharacterStateHelper.change_camera_state(player, "follow")
+		ScriptUnit.extension(unit, "first_person_system"):toggle_visibility(CameraTransitionSettings.perspective_transition_time)
+
+		-- Don't carry a stale "was aiming"/"was in weapon special zoom"/"was
+		-- genuinely first-person aiming" state into the next time third
+		-- person is turned back on.
+		self._is_aiming = false
+		self._weapon_special_zoom_active = false
+		self._first_person_aim_active = false
+	end
+end
+
+mod.toggle_third_person_pressed = function ()
+	mod:set_third_person_active(not mod.third_person_active)
+end
+
+-- Fakes the game's dev-only third-person flag so vanilla camera/zoom code
+-- routes through its own persistent third-person paths. See README.md
+-- ("Core approach") for why this beats forcing a specific camera state.
+-- Also suppressed for as long as mod._first_person_aim_active is true - see
+-- the set_zooming hook below ("First person while aiming") - so that ALL
+-- vanilla logic gated on this same flag (camera state, zoom node selection)
+-- naturally falls back to genuine first-person behavior with no other
+-- special-casing needed anywhere else.
+mod:hook(Development, "parameter", function (func, param)
+	if param == "third_person_mode" and mod.third_person_active and not mod._suppress_third_person_mode_flag and not mod._first_person_aim_active then
+		return true
+	end
+
+	return func(param)
+end)
+
+-- third_person_active persists for the whole session, but a brand new
+-- player_unit (new map, character switch, mid-level respawn) always starts
+-- back in first person - nothing re-asserts third person onto it unless we
+-- do so here. "level_start_local_player_spawned" is the vanilla event other
+-- systems already use for "reapply my state to the fresh local unit".
+-- Hooked on EventManager.trigger (the class, not a specific instance)
+-- because Managers.state.event is a brand new EventManager per level - a
+-- one-time :register() call wouldn't survive the next level transition.
+-- See README.md ("Persisting across new maps/characters").
+mod:hook(EventManager, "trigger", function (func, self, event_name, ...)
+	local result = func(self, event_name, ...)
+
+	if event_name == "level_start_local_player_spawned" and mod.third_person_active then
+		local is_initial_spawn, unit = ...
+		local player = unit and Managers.player:owner(unit)
+
+		if player then
+			mod:apply_third_person_to_unit(player, unit)
+		end
+	end
+
+	return result
+end)
+
+-- Zoom is entirely mod-owned now (see README.md "Camera position" for the
+-- long history of trying to mirror vanilla's own multi-tier zoom system in
+-- third person - crosshair drift on one specific node, then weapon-specific
+-- mismatches with a custom balance mod, then a still-unexplained regression
+-- where weapons with no real zoom tier started showing one). Regardless of
+-- which vanilla camera_name a weapon would normally zoom to
+-- ("zoom_in"/"increased_zoom_in"/etc, always suffixed to "..._third_person"
+-- once our fake flag is on), we always force the camera to stay on
+-- "over_shoulder" while zooming - the ONE node this mod fully controls the
+-- position of - and represent "zoomed in" purely via our own
+-- get_zoom_distance_reduction offset instead of switching nodes at all.
+-- Suppressing our flag fake for this call (like the original crossbow
+-- crash fix) stops vanilla from ALSO suffixing "over_shoulder" into the
+-- nonexistent "over_shoulder_third_person".
+--
+-- mod._is_aiming (read by get_zoom_distance_reduction) mirrors `zooming`
+-- directly - true for every ranged weapon's aim input, regardless of
+-- whether that weapon has a real zoom tier in vanilla. Un-aiming
+-- (zooming == false) is NOT redirected: letting vanilla run normally there
+-- already correctly picks "over_shoulder" for third person on its own.
+--
+-- First person while aiming (camera_first_person_when_aiming setting):
+-- instead of redirecting to "over_shoulder", suppress the third-person
+-- flag fake entirely for as long as aiming continues
+-- (mod._first_person_aim_active, read by the Development.parameter hook
+-- above) and let vanilla's own zoom/camera-node logic run completely
+-- untouched - it naturally resolves to genuine first-person camera nodes
+-- once the flag reads false, no node redirection needed at all. Also
+-- explicitly flips first_person_mode itself (override=true bypasses the
+-- set_first_person_mode hook below, which would otherwise force it back to
+-- third person) so the character mesh/viewmodel visuals switch too, not
+-- just the camera node. This sidesteps every weapon-specific zoom-tier
+-- mismatch documented above entirely, since it's genuinely vanilla's own
+-- first-person code running unmodified. See README.md ("First person while
+-- aiming").
+mod:hook(GenericStatusExtension, "set_zooming", function (func, self, zooming, camera_name)
+	if not mod.third_person_active then
+		return func(self, zooming, camera_name)
+	end
+
+	mod._is_aiming = zooming
+
+	if mod:get("camera_first_person_when_aiming") then
+		mod._first_person_aim_active = zooming
+
+		local first_person_extension = ScriptUnit.extension(self.unit, "first_person_system")
+
+		first_person_extension:set_first_person_mode(zooming, true)
+
+		return func(self, zooming, camera_name)
+	end
+
+	if not zooming then
+		return func(self, zooming, camera_name)
+	end
+
+	mod._weapon_special_zoom_active = false
+	mod._suppress_third_person_mode_flag = true
+
+	local result = func(self, zooming, "over_shoulder")
+
+	mod._suppress_third_person_mode_flag = false
+
+	return result
+end)
+
+-- Some vanilla states flip first-person mode back on without going through
+-- anything else we hook - pin it off for as long as we're active.
+mod:hook(PlayerUnitFirstPerson, "set_first_person_mode", function (func, self, active, override, unarmed)
+	if mod.third_person_active and not override then
+		active = false
+	end
+
+	return func(self, active, override, unarmed)
+end)
+
+-- CameraSettings offsets are baked once at level load, so we overwrite the
+-- live node's offset every frame instead. See README.md ("Camera position").
+-- Scaled by the shared blend (see get_camera_blend above) so the offset
+-- fades in/out around "heal_self" (self-inspect etc.) in lockstep with the
+-- turn, instead of snapping - this node isn't in OFFSET_NODE_NAMES so it
+-- never gets scaled itself, only whatever node the camera returns to.
+--
+-- Zoom (get_zoom_distance_reduction) only applies on "over_shoulder" -
+-- the only node the set_zooming/switch_variable_zoom hooks below ever
+-- actually activate now, so it's the only one where mod._is_aiming means
+-- anything.
+mod:hook(TransformCamera, "update", function (func, self, dt, position, rotation, data)
+	if not mod.third_person_active then
+		return func(self, dt, position, rotation, data)
+	end
+
+	local name = self._name
+
+	if mod.OFFSET_NODE_NAMES[name] then
+		local blend = mod._camera_blend_value or 1
+		local offset = mod:get_camera_offset()
+
+		if name == "over_shoulder" then
+			offset.y = offset.y - mod:get_smoothed_zoom_distance_reduction()
+		end
+
+		self._offset_position = {x = offset.x * blend, y = offset.y * blend, z = offset.z * blend}
+	end
+
+	return func(self, dt, position, rotation, data)
+end)
+
+-- Last Lua-level function to see camera_data before it becomes the actual
+-- rendered orientation - the only place downstream enough for the turn to
+-- survive zoom-node switches while aiming. Faded out on the "heal_self"
+-- node (self-inspect/revive/self-heal/emote camera views) rather than cut
+-- instantly. See README.md ("Turn composition math") for why it can't be
+-- applied earlier and why that node is excluded.
+--
+-- Position (the "camera movement when aiming" offset) is deliberately NOT
+-- touched here, even though this is where the turn's rotation is applied -
+-- camera_data.position here is downstream of per-frame smoothing, so an
+-- absolute delta added to it every frame compounds instead of staying
+-- fixed. See the TransformCamera.update hook instead, which sets a fresh,
+-- non-accumulating local offset every frame - the correct and only safe
+-- place for any position adjustment. See README.md ("Camera position").
+mod:hook(CameraManager, "_update_camera_properties", function (func, self, camera, shadow_cull_camera, current_node, camera_data, viewport_name)
+	if mod.third_person_active and camera_data.rotation and not mod._first_person_aim_active then
+		local blend = mod:get_camera_blend(current_node:name() == "heal_self")
+
+		if blend > 0 then
+			local yaw = mod:get_camera_yaw_radians() * blend
+			local pitch = mod:get_camera_pitch_radians() * blend
+
+			camera_data.rotation = mod:apply_turn_to_rotation(camera_data.rotation, yaw, pitch)
+		end
+	end
+
+	-- FOV per zoom state (mod.get_smoothed_fov_radians) only makes sense on
+	-- "over_shoulder" - the only node whose zoom state (mod._is_aiming /
+	-- mod._weapon_special_zoom_active) this mod actually drives. Any other
+	-- node (heal_self, or a vanilla mechanic activating one of the other
+	-- OFFSET_NODE_NAMES directly) keeps whatever FOV vanilla's own transition
+	-- system already computed for it.
+	if mod.third_person_active and current_node:name() == "over_shoulder" then
+		camera_data.vertical_fov = mod:get_smoothed_fov_radians()
+	end
+
+	return func(self, camera, shadow_cull_camera, current_node, camera_data, viewport_name)
+end)
+
+-- apply_recoil reads the rendered camera and bakes it into the character's
+-- real aim (a no-op in first person, but permanently bakes our cosmetic
+-- turn into the aim in third person). Strip the turn before calling
+-- through, restore it after. See README.md ("Turn getting permanently
+-- baked into aim") for the rapid-fire-weapon bug this replaced.
+mod:hook(PlayerUnitFirstPerson, "apply_recoil", function (func, self, factor)
+	if not mod.third_person_active or mod._first_person_aim_active then
+		return func(self, factor)
+	end
+
+	local yaw = mod:get_camera_yaw_radians()
+	local pitch = mod:get_camera_pitch_radians()
+
+	if yaw == 0 and pitch == 0 then
+		return func(self, factor)
+	end
+
+	local camera = mod:get_owner_camera(self.unit, self.world)
+	local turned_rotation = ScriptCamera.rotation(camera)
+	local clean_rotation = mod:strip_turn_from_rotation(turned_rotation, yaw, pitch)
+
+	ScriptCamera.set_local_rotation(camera, clean_rotation)
+
+	local result = func(self, factor)
+
+	ScriptCamera.set_local_rotation(camera, turned_rotation)
+
+	return result
+end)
+
+-- WASD movement follows the turned camera, not the character's clean aim
+-- (user request). Poke-and-restore first_person_unit for the synchronous
+-- duration of the call; no World.update_unit needed since current_rotation()
+-- reads local_rotation directly. See README.md ("WASD movement...").
+mod:hook(CharacterStateHelper, "move_on_ground", function (func, first_person_extension, input_extension, locomotion_extension, local_move_direction, speed, unit, strafe_speed_mult)
+	if not mod.third_person_active or mod._first_person_aim_active then
+		return func(first_person_extension, input_extension, locomotion_extension, local_move_direction, speed, unit, strafe_speed_mult)
+	end
+
+	local yaw = mod:get_camera_yaw_radians()
+
+	if yaw == 0 then
+		return func(first_person_extension, input_extension, locomotion_extension, local_move_direction, speed, unit, strafe_speed_mult)
+	end
+
+	local first_person_unit = first_person_extension.first_person_unit
+	local original_rotation = Unit.local_rotation(first_person_unit, 0)
+	local turned_rotation = mod:apply_turn_to_rotation(original_rotation, yaw, 0)
+
+	Unit.set_local_rotation(first_person_unit, 0, turned_rotation)
+
+	local result = func(first_person_extension, input_extension, locomotion_extension, local_move_direction, speed, unit, strafe_speed_mult)
+
+	Unit.set_local_rotation(first_person_unit, 0, original_rotation)
+
+	return result
+end)
+
+-- Almost every ranged weapon fires along the character's head bone
+-- regardless of perspective - fire from the camera instead so the shot
+-- matches the crosshair. See README.md ("Aiming origin").
+mod:hook(PlayerUnitFirstPerson, "get_projectile_start_position_rotation", function (func, self)
+	if not mod.third_person_active then
+		return func(self)
+	end
+
+	local camera = mod:get_owner_camera(self.unit, self.world)
+
+	return ScriptCamera.position(camera), ScriptCamera.rotation(camera)
+end)
+
+-- Flamethrower-kind weapons (Drakegun, Flamestorm Staff) don't go through
+-- get_projectile_start_position_rotation and need both their damage cone
+-- and visible flame redirected to the camera - two different fixes, see
+-- README.md ("Flamethrower") for the full multi-round history (render
+-- timing, a transient-object crash, and targeting the wrong bone).
+mod:hook(ActionFlamethrower, "client_owner_post_update", function (func, self, dt, t, world, can_damage)
+	if not mod.third_person_active then
+		return func(self, dt, t, world, can_damage)
+	end
+
+	local first_person_unit = self.first_person_unit
+	local weapon_unit = self.weapon_unit
+	local camera = mod:get_owner_camera(self.owner_unit, world)
+	local camera_position = ScriptCamera.position(camera)
+	local camera_rotation = ScriptCamera.rotation(camera)
+	local fp_original_position = Unit.local_position(first_person_unit, 0)
+	local fp_original_rotation = Unit.local_rotation(first_person_unit, 0)
+
+	-- The flame particle follows the MUZZLE node, not node 0 - node 0 is
+	-- always identity locally (rigidly attached to a hand bone that does
+	-- the real aiming), so we solve for the local rotation that makes the
+	-- muzzle's WORLD rotation equal camera_rotation instead of setting an
+	-- absolute value. See README.md for the derivation and the two wrong
+	-- attempts (vertical inversion, then a pitch/yaw coupling) before this.
+	local muzzle_node_name = self.muzzle_node_name or "fx_muzzle"
+	local muzzle_node = Unit.node(weapon_unit, muzzle_node_name)
+
+	-- Only valid while local is truly identity - restore-then-recompute
+	-- each frame after the first, since we deliberately leave the muzzle
+	-- poked between frames (see below) rather than restoring it every frame.
+	if self._tp_original_weapon_rotation == nil then
+		-- QuaternionBox: Unit.local_rotation returns a transient per-frame
+		-- value that doesn't survive being stored across frames raw.
+		self._tp_original_weapon_rotation = QuaternionBox(Unit.local_rotation(weapon_unit, muzzle_node))
+	else
+		Unit.set_local_rotation(weapon_unit, muzzle_node, self._tp_original_weapon_rotation:unbox())
+		World.update_unit(world, weapon_unit)
+	end
+
+	local muzzle_original_local_rotation = self._tp_original_weapon_rotation:unbox()
+	local muzzle_original_world_rotation = Unit.world_rotation(weapon_unit, muzzle_node)
+	local muzzle_effective_parent_world_rotation = Quaternion.multiply(muzzle_original_world_rotation, Quaternion.inverse(muzzle_original_local_rotation))
+	local weapon_rotation = Quaternion.multiply(Quaternion.inverse(muzzle_effective_parent_world_rotation), camera_rotation)
+
+	Unit.set_local_position(first_person_unit, 0, camera_position)
+	Unit.set_local_rotation(first_person_unit, 0, camera_rotation)
+	Unit.set_local_rotation(weapon_unit, muzzle_node, weapon_rotation)
+	World.update_unit(world, first_person_unit)
+	World.update_unit(world, weapon_unit)
+
+	local result_a, result_b, result_c = func(self, dt, t, world, can_damage)
+
+	-- first_person_unit restores every call (its rotation is read by many
+	-- other systems between frames); weapon_unit is deliberately left
+	-- poked - see _stop_fx below and README.md for why.
+	Unit.set_local_position(first_person_unit, 0, fp_original_position)
+	Unit.set_local_rotation(first_person_unit, 0, fp_original_rotation)
+	World.update_unit(world, first_person_unit)
+
+	return result_a, result_b, result_c
+end)
+
+-- Restores weapon_unit's rotation once firing actually stops (covers both
+-- natural completion and interruption/cancellation) - see the hook above.
+mod:hook(ActionFlamethrower, "_stop_fx", function (func, self)
+	if self._tp_original_weapon_rotation then
+		local weapon_unit = self.weapon_unit
+		local muzzle_node_name = self.muzzle_node_name or "fx_muzzle"
+		local muzzle_node = Unit.node(weapon_unit, muzzle_node_name)
+
+		Unit.set_local_rotation(weapon_unit, muzzle_node, self._tp_original_weapon_rotation:unbox())
+		World.update_unit(self.world, weapon_unit)
+
+		self._tp_original_weapon_rotation = nil
+	end
+
+	return func(self)
+end)
+
+-- Bolt/Fireball/Conflagration/Necromancy staves and Drakefire Pistols
+-- compute their own fire position/rotation from first_person_unit directly,
+-- bypassing get_projectile_start_position_rotation entirely. Same
+-- poke-and-restore as the flamethrower damage cone. See README.md
+-- ("ActionChargedProjectile").
+mod:hook(ActionChargedProjectile, "_shoot", function (func, self, t)
+	if not mod.third_person_active then
+		return func(self, t)
+	end
+
+	local first_person_unit = self.first_person_unit
+	local camera = mod:get_owner_camera(self.owner_unit, self.world)
+	local original_position = Unit.local_position(first_person_unit, 0)
+	local original_rotation = Unit.local_rotation(first_person_unit, 0)
+
+	Unit.set_local_position(first_person_unit, 0, ScriptCamera.position(camera))
+	Unit.set_local_rotation(first_person_unit, 0, ScriptCamera.rotation(camera))
+	World.update_unit(self.world, first_person_unit)
+
+	local result = func(self, t)
+
+	Unit.set_local_position(first_person_unit, 0, original_position)
+	Unit.set_local_rotation(first_person_unit, 0, original_rotation)
+	World.update_unit(self.world, first_person_unit)
+
+	return result
+end)
+
+-- Weapon special zoom (variable-zoom weapons: beam staves, trueflight bow)
+-- is now also entirely mod-owned - see the set_zooming hook above.
+-- mod._weapon_special_zoom_active just toggles on each call (this hook
+-- only ever fires on a weapon-special press while aiming, and the
+-- underlying vanilla cycle it used to drive is a two-entry table, so a
+-- plain toggle mirrors that alternation without needing to track vanilla's
+-- own cycle position at all). Still call through to vanilla so
+-- self.zoom_mode/self.zooming stay updated for whatever else might read
+-- them, but re-assert "over_shoulder" afterward in case vanilla's own
+-- (now-meaningless, since self.zoom_mode never matches its zoom_table
+-- once redirected) cycling changed the active node. See README.md
+-- ("Camera snapping forward...").
+--
+-- While genuinely first-person-aiming (mod._first_person_aim_active), skip
+-- entirely and let vanilla's own cycling run untouched - the third-person
+-- flag fake is already suppressed for the whole aim duration (see
+-- set_zooming above), so vanilla naturally picks real first-person camera
+-- names on its own, no redirection needed.
+mod:hook(GenericStatusExtension, "switch_variable_zoom", function (func, self, zoom_table)
+	if not mod.third_person_active or mod._first_person_aim_active then
+		return func(self, zoom_table)
+	end
+
+	mod._weapon_special_zoom_active = not mod._weapon_special_zoom_active
+
+	local result = func(self, zoom_table)
+	local camera_follow_unit = self.player.camera_follow_unit
+
+	if Unit.alive(camera_follow_unit) then
+		Unit.set_data(camera_follow_unit, "camera", "settings_node", "over_shoulder")
+	end
+
+	return result
+end)
+
+mod.on_disabled = function ()
+	mod:set_third_person_active(false)
+end

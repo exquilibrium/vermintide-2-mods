@@ -19,7 +19,9 @@ local fonts = {
 	}
 }
 
-local function draw_icon(renderer, unit, camera, player_position)
+local FIRST_PERSON_DISTANCE_THRESHOLD = 0.5
+
+local function draw_icon(renderer, unit, camera, player_position, is_local_player)
 	if not Unit.alive(unit.player_unit) then
 		return
 	end
@@ -37,6 +39,15 @@ local function draw_icon(renderer, unit, camera, player_position)
 	local min_render_distance = mod:get("min_render_distance") or 0
 	local max_render_distance = mod:get("max_render_distance") or 255
 	local distance = Vector3.distance(head_pos, player_position)
+
+	-- Own tag only makes sense when actually seeing yourself from outside your own head. The
+	-- game's third-person camera states cover being hooked/grabbed/executed/awaiting respawn, but
+	-- third-party "third person mod"-style camera mods pull the camera back without ever touching
+	-- those states, so fall back to a plain distance check: camera far from your own head means
+	-- you're looking at yourself regardless of what moved the camera there.
+	if is_local_player and not mod.is_in_third_person and distance < FIRST_PERSON_DISTANCE_THRESHOLD then
+		return
+	end
 
 	if max_render_distance < distance or distance < min_render_distance then
 		return
@@ -176,12 +187,27 @@ local function is_local_player_action(self)
 	return owner_player ~= nil and not owner_player.remote and not owner_player.bot_player
 end
 
-local function is_throwing_axe_action(self)
+-- Weapons whose charge/aim hold uses the generic "dummy" action kind, keyed by their
+-- weapon_template.weapon_type. Add more here if other charge-hold weapons turn out to need it too.
+local CHARGE_HOLD_WEAPON_TYPES = {
+	THROWING_AXE = true,
+	BRACE_OF_PISTOLS = true,
+}
+
+local function is_charge_hold_weapon_action(self)
 	local item_data = self.item_name and rawget(ItemMasterList, self.item_name)
 	local weapon_template_name = item_data and item_data.template
 	local weapon_template = weapon_template_name and WeaponUtils.get_weapon_template(weapon_template_name)
 
-	return weapon_template ~= nil and weapon_template.weapon_type == "THROWING_AXE"
+	return weapon_template ~= nil and CHARGE_HOLD_WEAPON_TYPES[weapon_template.weapon_type] == true
+end
+
+-- Bounty Hunter's "Coup de Grace" ultimate: the actual holding-to-aim phase is this career-ability
+-- item's "career_dummy" hold action, not ActionCareerWHBountyhunter (that's only the brief release
+-- shot). ActionCareerDummy is shared by nearly every hero's career ability wield/hold wrapper, most
+-- of which have nothing to do with aiming, so this is scoped to the Bounty Hunter's ability item.
+local function is_bounty_hunter_ultimate_action(self)
+	return self.item_name == "victor_bountyhunter_career_skill_weapon" or self.item_name == "victor_bountyhunter_career_skill_weapon_vs"
 end
 
 -- Javelin's (and any other weapon's) charged throw reuses ActionMeleeStart, which only zooms/aims
@@ -217,17 +243,37 @@ register_aiming_action(ActionAimEnergy)
 -- Waystalker's "Piercing Shot" talent (the pierce-through variant of Trueflight Volley)
 register_aiming_action(ActionCareerAim)
 
--- Bounty Hunter's handgun weapon; the "Coup de Grace" career ability chains through this same class
+-- Bounty Hunter's handgun weapon; also the brief release-shot moment of "Coup de Grace"
 register_aiming_action(ActionBountyHunterHandgun)
+
+-- The actual holding phase of Bounty Hunter's "Coup de Grace" ultimate (see comment above)
+register_aiming_action(ActionCareerDummy, is_bounty_hunter_ultimate_action)
 
 -- Waystalker's "Trueflight Volley" and Pyromancer's "Piercing Flame" career ability target-lock/charge phase
 register_aiming_action(ActionCareerTrueFlightAim)
 
--- Ranger Veteran's (and anyone else's) charged Throwing Axe throw
-register_aiming_action(ActionDummy, is_throwing_axe_action)
+-- Charged Throwing Axe throw and charged Brace of Pistols shot (see CHARGE_HOLD_WEAPON_TYPES)
+register_aiming_action(ActionDummy, is_charge_hold_weapon_action)
 
 -- Javelin's charged throw (and any other weapon's zoom-enabled charged heavy attack)
 register_aiming_action(ActionMeleeStart, is_zoom_charge_action)
+
+-- Drakegun and Flamestorm Staff's continuous flame stream (no ActionAim relation at all - a
+-- standalone ActionBase subclass with its own client_owner_start_action/finish)
+register_aiming_action(ActionFlamethrower)
+
+-- Beam Staff's continuous beam (same standalone shape as ActionFlamethrower above)
+register_aiming_action(ActionBeam)
+
+-- Charge-up phase shared by Fireball Staff, Conflagration Staff, Bolt Staff and Drakefire
+-- Pistols (also grenades and a couple of other charge-hold weapons, which is fine here too)
+register_aiming_action(ActionCharge)
+
+-- Conflagration Staff's ground-target aim (holding to place the geyser before it erupts)
+register_aiming_action(ActionGeiserTargeting)
+
+-- Drakefire Pistols' continuous ember spray alt-fire
+register_aiming_action(ActionBulletSpray)
 
 mod:hook_safe(IngameUI, "post_update", function (self, _, t)
 	local renderer = self.ui_renderer
@@ -259,10 +305,10 @@ mod:hook_safe(IngameUI, "post_update", function (self, _, t)
 	local player_position = Camera.world_position(camera)
 
 	for _, player in pairs(players) do
-		local draw_player_name = player ~= current_player or display_own_name and mod.is_in_third_person
+		local is_local_player = player == current_player
 
-		if draw_player_name then
-			draw_icon(renderer, player, camera, player_position)
+		if not is_local_player or display_own_name then
+			draw_icon(renderer, player, camera, player_position, is_local_player)
 		end
 	end
 end)
