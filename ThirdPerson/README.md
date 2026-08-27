@@ -121,38 +121,32 @@ severe problems before being abandoned:
    aim - never fully explained, though likely another balance-mod
    interaction.
 
-**The fix**: stop trying to represent "which vanilla zoom tier" via a
-different camera node at all. The mod now defines its own zoom behavior
-entirely, via four settings (`camera_zoom_enabled`, `camera_zoom_amount`,
-`camera_weapon_special_zoom_enabled`, `camera_weapon_special_zoom_amount`)
-and two pieces of state:
+**The first fix**: stop trying to represent "which vanilla zoom tier" via a
+different camera node at all. The mod defined its own zoom behavior
+entirely instead, via four settings (`camera_zoom_enabled`,
+`camera_zoom_amount`, `camera_weapon_special_zoom_enabled`,
+`camera_weapon_special_zoom_amount`) that moved the camera physically
+closer/forward on `"over_shoulder"` while aiming - still using
+`mod._is_aiming`/`mod._weapon_special_zoom_active` (state that's still
+current, see "Weapon zoom, entirely mod-owned" below) to pick which amount
+applied. This resolved problems 2 and 3 above (no more vanilla zoom tier to
+mismatch, nothing left for a balance mod's reconfigured thresholds to
+interfere with), but **did NOT resolve problem 1** - crosshair drift while
+aiming with a turn dialed in persisted, because this design still moved the
+camera's position per zoom state, just via a different mechanism (a mod-owned
+offset instead of a vanilla node switch) that turned out to have the exact
+same class of bug.
 
-- `mod._is_aiming` - set directly from `zooming` in the `set_zooming` hook,
-  true for every ranged weapon's aim input regardless of whether that
-  weapon has a real zoom tier in vanilla.
-- `mod._weapon_special_zoom_active` - reset to `false` at the start of
-  every aim session, toggled each time `switch_variable_zoom` fires
-  (weapon special pressed while aiming).
-
-`get_zoom_distance_reduction` turns those into a single number to subtract
-from `camera_distance`: 0 while not aiming, `camera_zoom_amount` while
-aiming normally, `camera_weapon_special_zoom_amount` while weapon special
-zoom is active - the weapon-special amount *replaces* the regular amount
-rather than adding to it, matching how the two settings are presented as
-independent alternatives, not stacking bonuses. This only ever applies on
-`"over_shoulder"` - the ONE node the `set_zooming`/`switch_variable_zoom`
-hooks (see "Weapon zoom, entirely mod-owned" below) ever actually activate
-now, so it's the only node where `mod._is_aiming` means anything. The
-other three node names stay listed in `OFFSET_NODE_NAMES` only in case
-some other, untouched mechanic still activates them directly - the mod no
-longer switches to them itself.
-
-This sidesteps all three problems at once: the crosshair-drift bug is moot
-because the buggy node is never used again; there's no vanilla zoom tier
-to mismatch because the mod doesn't try to track it; and there's nothing
-left for a balance mod's reconfigured thresholds to interfere with, since
-zoom amount is a plain mod setting, not derived from any weapon template
-field.
+**The real fix, found much later**: the crosshair drift was never actually
+about which camera NODE was active - it was caused by moving the camera's
+POSITION per zoom state at all, regardless of mechanism. Once that was
+identified, the four distance-zoom settings above were removed entirely and
+zoom was rebuilt as FOV-only, with the camera's position now fixed across
+every zoom state. See "Weapon zoom, entirely mod-owned" below for the full
+story and the current, final design - this section is kept for the
+history of *why* the position-based approaches (vanilla node switching,
+then a mod-owned position offset) were both eventually abandoned, not as a
+description of current behavior.
 
 ## Turn getting permanently baked into aim (`apply_recoil` hook)
 
@@ -230,50 +224,67 @@ redirected by `set_zooming`, so vanilla's own lookup can land anywhere;
 the camera node it might pick doesn't matter, since we override it back
 regardless.
 
-**Transitions between zoom states are eased, not instant**
-(`get_smoothed_zoom_distance_reduction`). `get_zoom_distance_reduction_target`
-computes the destination distance-reduction for the current state (0, the
-regular zoom amount, or the weapon-special amount); a second function eases
-the actual value used each frame toward that target over the user-configured
-`camera_zoom_speed` (seconds - lower is faster, defaults to 0.6 to match
-`CameraTransitionSettings.perspective_transition_time`, vanilla's own
-first/third-person transition duration) - same start-value/start-time
-tracking pattern as `get_camera_blend` above, generalized from a 0/1 blend
-factor to an arbitrary numeric target. This covers all three transitions
-with one mechanism: aiming in, un-aiming, and toggling weapon special zoom
-on/off mid-aim.
+**ROOT CAUSE OF THE CROSSHAIR-DRIFT BUG FOUND: moving the camera per zoom
+state.** After 7+ failed attempts across the whole session (documented
+under "Camera position" above - chasing the turned direction, suppressing
+the turn, substituting camera nodes, redesigning zoom as mod-owned distance
++ FOV), the user identified the actual cause through their own testing: it
+was the per-frame camera-position offset this mod itself applied while
+zoomed (`camera_zoom_amount`/`camera_weapon_special_zoom_amount`, subtracted
+from `offset.y` in `TransformCamera.update`, moving the camera physically
+closer/forward while aiming). Every earlier attempt treated the drift as a
+bug in how the TURN interacted with zoom - it was actually the zoom's own
+POSITION change interacting badly with the turn, which is why "suppress the
+turn while aiming" and "chase the turned direction" both failed: neither
+touched the actual cause.
+
+**Fix: zoom is now FOV-only. The camera's position never changes with zoom
+state at all.** `get_camera_offset` (`TransformCamera.update`) no longer
+varies by zoom state in any way - the `camera_zoom_amount`/
+`camera_zoom_speed`/`camera_weapon_special_zoom_amount`/
+`camera_zoom_enabled`/`camera_weapon_special_zoom_enabled` settings, and
+`get_zoom_distance_reduction_target`/`get_smoothed_zoom_distance_reduction`,
+are all removed entirely - not disabled, not defaulted to zero, deleted -
+so there's no distance-changing code path left to regress back into this
+bug by accident. The camera sits at exactly the same position and distance
+whether unzoomed, zoomed, or weapon-special zoomed; only the FOV changes.
 
 **FOV per zoom state** (`get_fov_radians_target`/`get_smoothed_fov_radians`,
-`_update_camera_properties` hook). Three independent settings -
+`_update_camera_properties` hook) is now the ONLY zoom effect this mod
+applies (moved into `zoom_settings_group` from its own former
+`fov_settings_group` - now the only group left, since it's the only real
+"zoom" setting). Three independent settings -
 `camera_fov_unzoomed`/`camera_fov_zoomed`/`camera_fov_extra_zoomed`
-(degrees, defaulting to 65/30/16 to match vanilla's own third-person
-`over_shoulder`/`zoom_in_third_person`/`increased_zoom_in_third_person`
-node FOVs respectively, even though those nodes are no longer used for
-zoom) - selected by the same three-way `mod._is_aiming`/
-`mod._weapon_special_zoom_active` state used for the distance reduction
-above, eased toward the target using the exact same pattern (and the same
-`camera_zoom_speed` duration, so the FOV narrows and the camera moves
-forward in lockstep). Applied by directly setting `camera_data.vertical_fov`
-before calling through to vanilla `_update_camera_properties` - the same
-field vanilla's own transition system would have set from the current
-node's `vertical_fov()`, just overridden with our own value. Deliberately
-NOT gated by `camera_zoom_enabled`/`camera_weapon_special_zoom_enabled`
-(the distance-zoom on/off toggles) - FOV is its own independent effect; set
-all three values equal to disable FOV changes entirely. Only applied while
+(degrees, defaulting to 65/32/16 to roughly match vanilla's own
+third-person `over_shoulder`/`zoom_in_third_person`/
+`increased_zoom_in_third_person` node FOVs, even though those nodes are no
+longer used for zoom) - selected by the same three-way `mod._is_aiming`/
+`mod._weapon_special_zoom_active` state used throughout this file, eased
+toward the target via `ease_toward` over the user-configured
+`camera_zoom_speed` setting (seconds - lower is faster). Applied by
+directly setting `camera_data.vertical_fov` before calling through to
+vanilla `_update_camera_properties` - the same field vanilla's own
+transition system would have set from the current node's `vertical_fov()`,
+just overridden with our own value. Only applied while
 `current_node:name() == "over_shoulder"` - the only node whose zoom state
 this mod actually drives; any other node (`heal_self`, or a vanilla
 mechanic activating one of the other `OFFSET_NODE_NAMES` directly) keeps
 whatever FOV vanilla's own transition system computed for it.
 
-**Shared easing helper** (`ease_toward`). The distance-zoom reduction and
-FOV smoothing above are two near-identical "ease this value toward a
-target over `camera_zoom_speed`" implementations - factored into one
-generic, keyed helper (`self._ease_state[key]`) reused by both, so future
-per-zoom-state values this mod smooths don't need a third copy of the same
-start-value/start-time tracking logic. Safe to call more than once per
-frame for the same key since it's a pure recompute from stored state each
-call, not an accumulator - the underlying `Managers.time` "now" value
-doesn't change within a frame, so repeated calls return the identical value.
+**`ease_toward` helper kept from the distance-zoom era, now FOV's only
+caller.** The generic keyed easing helper (`self._ease_state[key]`),
+introduced when there were two things to smooth (distance-zoom reduction
+and FOV), is still worth keeping as its own function even with only FOV
+using it now - it's a real, separable piece of behavior ("ease toward a
+target over a duration, keyed, safe to call more than once per frame") and
+the next per-zoom-state value this mod smooths (if any) can reuse it
+without duplicating the start-value/start-time tracking again.
+`camera_zoom_speed` itself was briefly removed alongside the distance-zoom
+settings it used to also govern (FOV fell back to the fixed vanilla
+`CameraTransitionSettings.perspective_transition_time` duration for one
+round), then re-added at the user's request as FOV's own speed control -
+it now exists purely for FOV, unrelated to its original distance-zoom
+purpose.
 
 **Known tradeoff, not yet reported as an issue but worth flagging:**
 `self.zoom_mode`'s exact string value may no longer reliably reflect
@@ -286,6 +297,61 @@ could behave differently in third person than in first person as a
 result. Camera behavior is unaffected either way, since it's driven by
 `mod._is_aiming`/`mod._weapon_special_zoom_active` instead, but this is
 worth keeping in mind if a talent-specific bug surfaces later.
+
+## TourneyBalance compatibility: Beam Staff never zoomed at all (`ActionBeam` hook)
+
+The user reported the Beam Staff never zoomed in third person - not a
+misbehaving tier, no zoom effect whatsoever. Diagnostic logging (three
+rounds: a `set_zooming` echo, an `ActionBeam` do_zoom/is_zooming echo, then
+a before/after-`func()` comparison per call) showed `GenericStatusExtension.is_zooming()`
+staying `false` for the entire duration of firing, every single frame,
+even immediately after calling through to `func(...)` - meaning
+`set_zooming(true)` was never actually being invoked, despite
+`self.do_zoom` reading `true` the whole time (which per vanilla's own
+source, `scripts/unit_extensions/weapons/actions/action_beam.lua`, should
+unconditionally trigger it every frame while not already zooming).
+
+**Root cause, confirmed by reading the user's TourneyBalance install**
+(`Tourney-Balance-Open-Beta/scripts/mods/TourneyBalance/changes/weapon_changes/ranged/bw_beam.lua`):
+TourneyBalance replaces `ActionBeam.client_owner_post_update` **entirely**
+via its own `mod:hook_origin` (VMF's "replace the original function" hook
+type, as opposed to the wrap-around `mod:hook` this mod uses everywhere).
+Its replacement rewrote the beam's damage/zoom logic and, in doing so,
+simply dropped vanilla's `if self.do_zoom then if not
+status_extension:is_zooming() then status_extension:set_zooming(true) end
+... end` block - the replacement only ever calls `switch_variable_zoom`
+(gated on weapon special), never the entry call. Since `hook_origin`
+replaces the function at the bottom of the hook chain, `func(...)` inside
+*our own* `ActionBeam` hook resolves to TourneyBalance's version, not
+vanilla's - so the Beam Staff never enters a "zooming" state for our
+`set_zooming` hook to ever see, regardless of third person. The exit side
+(`ActionBeam.finish` calling `set_zooming(false)`) is untouched by
+TourneyBalance, which is why `set_zooming(false)` was the only call our
+diagnostics ever caught.
+
+**Fix**: a new hook on `ActionBeam.client_owner_post_update` calls through
+first, then - only if `mod.third_person_active`, `self.do_zoom` is true,
+and `is_zooming()` is *still* false afterward - calls
+`self.status_extension:set_zooming(true)` itself, restoring the call
+TourneyBalance's replacement dropped. Checking the RESULT after calling
+through (rather than unconditionally before) makes this self-healing and
+safe regardless of cause: with plain vanilla (no TourneyBalance, or a
+future TourneyBalance version that restores the call), `is_zooming()`
+would already be `true` by this point and the extra call is a harmless
+no-op. Deliberately scoped to `mod.third_person_active` only - Beam Staff
+zoom while playing in plain first person is unaffected by this mod either
+way, and it's not this mod's place to silently patch a third-party
+balance mod's own first-person behavior.
+
+**Only Beam Staff is covered.** Other weapons TourneyBalance modifies
+could have the same class of gap (any weapon whose action class is
+replaced via `hook_origin` and drops a `set_zooming` call) - not audited,
+since this fix was scoped to the one weapon actually reported broken. If
+another weapon's zoom turns out to be similarly silent in third person,
+the diagnosis technique here (log `is_zooming()` before/after calling
+through the hooked function, check whether the user's balance mod
+replaces that weapon's update function via `hook_origin`) is the template
+to reuse, not something to re-derive from scratch.
 
 ## Turn composition math (`apply_turn_to_rotation` / `strip_turn_from_rotation`)
 
@@ -509,74 +575,27 @@ hooking `_shoot` itself covers both call sites in one place.
 User confirmed (`staff_death.lua`'s custom-origin approximation included)
 this is fine as-is — no further work planned here.
 
-## First person while aiming (`camera_first_person_when_aiming` setting)
-
-Instead of trying to further tune the mod-owned third-person zoom (see
-"Weapon zoom, entirely mod-owned" above), this setting sidesteps zoom
-entirely: while aiming a ranged weapon, switch to a genuinely vanilla
-first-person view instead of any third-person zoom simulation.
-
-Tracked by a single new state flag, `mod._first_person_aim_active`, set
-from the `set_zooming` hook's `zooming` argument whenever the setting is
-enabled. Two things happen when it's set:
-
-1. **The third-person flag fake is suppressed** for as long as it's true
-   (the `Development.parameter` hook checks it alongside the existing
-   `mod._suppress_third_person_mode_flag`). Since - per "Core approach"
-   above - BOTH the camera state machine and `GenericStatusExtension`'s
-   zoom logic already gate on this exact flag, suppressing it makes ALL of
-   vanilla's own camera/zoom code naturally fall back to genuine
-   first-person behavior with no per-callsite redirection needed - no
-   `"over_shoulder"` forcing, no node-name substitution, none of the
-   machinery the mod-owned zoom above needs. `switch_variable_zoom` (weapon
-   special) is skipped entirely for the same reason - vanilla's own cycling
-   already does the right thing once the flag reads false.
-2. **`first_person_extension:set_first_person_mode(zooming, true)`** is
-   called explicitly - the `override=true` bypasses the
-   `set_first_person_mode` hook's own "pin to third person" behavior -  so
-   the character mesh/viewmodel visuals (body hidden, first-person arms
-   shown) switch to match, not just the camera node.
-
-Every OTHER hook in this mod is gated on `mod.third_person_active` alone
-(which stays `true` throughout - the mod doesn't consider itself "off"
-just because the camera is temporarily first-person). Two of them
-needed an explicit `not mod._first_person_aim_active` exclusion to avoid
-misapplying third-person-only behavior to a now-genuinely-first-person
-camera:
-
-- `_update_camera_properties` (the yaw/pitch turn) - applying a
-  third-person "look around independent of aim" offset to a real
-  first-person view would visibly skew it away from where the character is
-  actually aiming, which defeats the purpose of this setting.
-- `apply_recoil`/`move_on_ground` - both read `get_camera_yaw_radians`/
-  `get_camera_pitch_radians` UNSCALED (no blend factor - see "Turn
-  composition math" for why blend-scaling these two was already tried once
-  for a different reason and made a different bug worse). If the turn isn't
-  being applied to the render at all during first-person aim, these two
-  must skip entirely too, not just scale down - otherwise `apply_recoil`
-  would strip a turn that was never actually rendered, incorrectly baking a
-  negative turn into the character's real aim on every shot.
-
-`TransformCamera.update` (position offset) and the FOV block in
-`_update_camera_properties` needed no changes - both are already gated on
-specific node names (`OFFSET_NODE_NAMES`, `"over_shoulder"`) that a genuine
-first-person camera node (`"zoom_in"`, `"first_person_node"`, etc.) never
-matches, so they're naturally inert during first-person aim without any
-extra condition.
-
-`set_third_person_active`'s deactivate branch resets
-`mod._first_person_aim_active = false` alongside the existing
-`_is_aiming`/`_weapon_special_zoom_active` resets, so no stale state
-carries into the next time third person is turned on.
-
-**Not yet confirmed working in-game by the user.**
-
 ## Known gaps
 
 - **Melee** (`action_sweep.lua`, `action_shield_slam.lua`): deliberately
   left using the character's real position/rotation, not the camera —
   redirecting hit origin to the camera could make attacks miss things right
   next to the character or hit things behind them.
+- **"First person while aiming" - tried and removed.** A
+  `camera_first_person_when_aiming` setting attempted to switch to a
+  genuine vanilla first-person camera/state while aiming, instead of the
+  mod-owned third-person zoom - by suppressing the third-person flag fake
+  for the aim duration and re-triggering
+  `CharacterStateHelper.change_camera_state(player, "follow")` so the
+  camera STATE itself (not just the node name) actually swapped. The first
+  version (missing the `change_camera_state` call) was confirmed not
+  working; a second, source-grounded fix was implemented but never
+  confirmed working before the user asked to remove the feature entirely
+  rather than keep iterating on it. Removed cleanly - no leftover
+  `mod._first_person_aim_active` state or special-casing remains in any
+  hook. If revisited, the `change_camera_state` fix from this history is
+  still the right lead (see git history / prior conversation for the exact
+  reasoning), not something to re-derive from scratch.
 - **Explicitly out of scope per the user, versus-mode-related, do not
   revisit unless asked**: `ActionWarpfireThrower` (separate class from
   `ActionFlamethrower`, not audited) and
@@ -600,10 +619,10 @@ carries into the next time third person is turned on.
 
 ## Refactor notes
 
-Three shared helpers consolidate logic that was previously duplicated
-across multiple hooks (and, in the turn-composition case, is exactly what
-let two of the bugs above happen — one copy got fixed while a duplicate
-elsewhere didn't):
+Shared helpers consolidate logic that was previously duplicated across
+multiple hooks (and, in the turn-composition case, is exactly what let two
+of the bugs above happen — one copy got fixed while a duplicate elsewhere
+didn't):
 
 - `mod.get_owner_camera(self, owner_unit, world)` — the
   `Managers.player:owner` / `ScriptWorld.viewport` / `ScriptViewport.camera`
@@ -611,3 +630,10 @@ elsewhere didn't):
 - `mod.apply_turn_to_rotation` / `mod.strip_turn_from_rotation` — the turn
   composition and its exact inverse, previously duplicated between the
   camera hook and `move_on_ground`.
+- `mod.ease_toward(self, key, target, duration)` — a generic, keyed
+  "ease this value toward a target over a duration" helper (see "Weapon
+  zoom, entirely mod-owned"), introduced when there were two per-zoom-state
+  values to smooth (a distance-zoom reduction, since removed, and FOV) and
+  kept as FOV's sole caller after the first was removed — still worth
+  keeping as its own function rather than inlining into `get_smoothed_fov_radians`,
+  since it's a real, separable, reusable piece of behavior.

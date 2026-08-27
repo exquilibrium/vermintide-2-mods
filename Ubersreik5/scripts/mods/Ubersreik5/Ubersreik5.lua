@@ -24,9 +24,26 @@ end)
 -- StateIngame instance instead of exiting/re-entering it, so the on_enter
 -- reset above never fires and stats from the previous attempt would
 -- otherwise carry over.
+--
+-- This also covers vanilla's own native stats (kills/damage/etc - the
+-- StatisticsDatabase backing everything CustomScoreboard.lua reads directly
+-- off it). That db is created once per "venture" (Managers.venture.statistics,
+-- see GameMechanismManager._on_venture_start) and only swapped for a fresh
+-- one when the venture ends (returning to inn) - a same-venture restart never
+-- touches it, so without this it accumulates across restarts too. Vanilla
+-- itself defines StatisticsDatabase:reset_session_stats() for exactly this
+-- (zeroes every registered player's session stat back to its default/
+-- persistent value in place, no unregister/re-register needed) but never
+-- calls it anywhere in real gameplay - only from its own unit test.
 mod:hook_safe(LevelTransitionHandler, "reload_level", function (self, ...)
 	if PlayerScores ~= nil then
 		PlayerScores = {}
+	end
+
+	local statistics_db = Managers.venture and Managers.venture.statistics
+
+	if statistics_db then
+		statistics_db:reset_session_stats()
 	end
 end)
 

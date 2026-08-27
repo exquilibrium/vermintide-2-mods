@@ -72,55 +72,12 @@ return {
 		en = "Zoom Settings",
 	},
 
-	camera_first_person_when_aiming = {
-		en = "First Person When Aiming",
-	},
-	camera_first_person_when_aiming_tooltip = {
-		en = "Switch to a genuine first-person view while aiming a ranged weapon, instead of the third-person zoom below."
-			.."\nWhile active, all Zoom and FOV settings below are ignored, and weapon zoom tiers (regular/special) behave exactly like normal first-person play.",
-	},
-
-	camera_zoom_enabled = {
-		en = "Zoom",
-	},
-	camera_zoom_enabled_tooltip = {
-		en = "Move the camera closer to the character while aiming a ranged weapon.",
-	},
-
-	camera_zoom_amount = {
-		en = "Zoom Amount",
-	},
-	camera_zoom_amount_tooltip = {
-		en = "How far the camera moves toward the character (on top of the normal distance above) while aiming."
-			.."\nPositive values pull the camera closer/forward; negative values push it further away.",
-	},
-
 	camera_zoom_speed = {
 		en = "Zoom Speed",
 	},
 	camera_zoom_speed_tooltip = {
-		en = "How long the camera takes to transition between zoom states (no zoom, zoomed, weapon special zoom), in seconds."
+		en = "How long the FOV takes to transition between zoom states (unzoomed, zoomed, weapon special zoom), in seconds."
 			.."\nLower values transition faster.",
-	},
-
-	camera_weapon_special_zoom_enabled = {
-		en = "Weapon Special Zoom",
-	},
-	camera_weapon_special_zoom_enabled_tooltip = {
-		en = "Move the camera even closer while the weapon's special zoom is active (e.g. holding the secondary aim button on weapons that support it)."
-			.."\nReplaces the regular zoom amount above while active, rather than adding to it.",
-	},
-
-	camera_weapon_special_zoom_amount = {
-		en = "Weapon Special Zoom Amount",
-	},
-	camera_weapon_special_zoom_amount_tooltip = {
-		en = "How far the camera moves toward the character (on top of the normal distance above) while the weapon's special zoom is active."
-			.."\nPositive values pull the camera closer/forward; negative values push it further away.",
-	},
-
-	fov_settings_group = {
-		en = "FOV Settings",
 	},
 
 	camera_fov_unzoomed = {
