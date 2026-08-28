@@ -225,6 +225,95 @@ offset or turn dialed in, the crosshair and the actual shot diverge. We
 return the camera's own position/rotation instead while third person is
 active, mirroring what the vanilla first-person branch already does.
 
+## Tag/ping raycast (`ContextAwarePingExtension._check_raycast` hook)
+
+Same class of bug as weapon fire above, in a different system. The user
+asked whether tag/enemy-marking could raycast from the third-person
+camera - confirmed by reading
+`scripts/unit_extensions/default_player_unit/ping/context_aware_ping_extension.lua`
+that `_check_raycast` (shared by the dedicated "Tag" key AND the regular
+ping/social-wheel targeting - one fix covers both) sources its raycast
+from `first_person_extension:current_position()`/`current_rotation()`,
+which trace to `Unit.local_position/local_rotation(first_person_unit, 0)`
+- the character's own facing, not the camera. In third person this means
+pressing Tag marks whatever the character's head happens to be pointed at,
+not what's actually under the crosshair.
+
+Fixed with the same poke-and-restore pattern already used for
+`ActionChargedProjectile`/the flamethrower below: temporarily set
+`first_person_unit` to the camera's position/rotation for the exact
+synchronous duration of the `_check_raycast` call, then restore
+immediately after. No `World.update_unit` needed - like `move_on_ground`,
+`current_position`/`current_rotation` read `Unit.local_position`/
+`local_rotation` directly, which update immediately with no propagation
+delay (unlike the flamethrower's damage-cone read, which needed it because
+`_select_targets` reads `Unit.world_position`/`world_rotation` instead).
+
+The extension's *other* raycast-adjacent function,
+`_is_camera_looking_at_position` (a fallback used only for the
+dark-pact/versus-mode "mark nearest enemy along your sightline when the
+raycast itself found nothing" case), already calls
+`first_person_extension:camera()` - the real rendered camera, not the head
+bone - so it was already correct in third person and needed no change.
+
+## Item pickup / interaction raycast (`GenericUnitInteractorExtension.update`, `extend_interact_ray_distance`)
+
+Same class of fix again, immediate follow-up to the tag/ping one above -
+`GenericUnitInteractorExtension.update`'s local-player branch (item
+pickups, ammo crates, levers, revive prompts, etc.) sources its raycast
+from `first_person_extension:current_position()`/`current_rotation()`,
+the same head-bone-not-camera problem. Fixed with the identical
+poke-and-restore pattern, wrapping the *entire* `update()` call rather
+than trying to intercept the raycast individually - it's inlined directly
+in a large (~200 line), non-hookable-in-parts function, and everything
+camera-relevant inside it runs synchronously within this one call, so
+bracketing the whole thing is simpler and safer than picking apart or
+reimplementing any of its internal logic.
+
+**The user also flagged something the tag/ping fix alone would have
+missed: moving the raycast origin back to the third-person camera makes
+it geometrically farther from anything the character is looking at, so
+the vanilla fixed-length raycast can now fall short of items that were
+perfectly reachable in first person - a straight port of the tag/ping fix
+alone would have been a regression for anything near the edge of interact
+range.** `INTERACT_RAY_DISTANCE` (2.5m by default) turned out to be a
+genuine bare Lua global (declared without `local` in
+`generic_unit_interactor_extension.lua`), not a table field - and
+critically, **not safe to change permanently**, since
+`player_bot_base.lua` also reads it for bot AI positioning (how close a
+bot needs to walk to a pickup/revive target before interacting) -
+permanently increasing it would have made bots stand farther from
+pickups than intended, an unrelated side effect with nothing to do with
+this mod's own camera. New shared helper `mod.extend_interact_ray_distance(self,
+extra_distance)` temporarily adds `extra_distance` to it and returns the
+original value, so it can be restored immediately after - the same
+poke-and-restore philosophy already used throughout this file for `Unit`
+position/rotation, just applied to a global variable instead. Since Lua is
+single-threaded and this only spans one synchronous function call, nothing
+else (bot AI included) can ever observe the temporarily-extended value.
+
+**First version passed `camera_distance` (the setting) as `extra_distance`
+- the user immediately caught that this was wrong.** Even at
+`camera_distance = 0`, the camera doesn't sit at the head/eye position:
+the shoulder x-offset, the height offset, and the third-person node's own
+baseline anchor point (which the vanilla node tree roots to a chest/body
+reference, not the head bone) all still contribute a real gap that a
+setting-based estimate misses entirely. **Fixed to measure the actual
+distance instead of approximating it from settings**: both call sites
+already capture `original_position` (the true, unpoked head position) and
+`camera_position` (the real rendered camera position) at the moment they
+poke `first_person_unit` - `extra_distance` is now
+`Vector3.distance(camera_position, original_position)`, the exact
+real-world gap between them, measured fresh every call. This is correct
+regardless of `camera_distance`, shoulder side/x/y offsets, or any
+baseline anchor-to-head gap, since it's reading the real positions
+directly rather than reconstructing an estimate from individual settings.
+
+Also applied to the tag/ping hook above, since `ContextAwarePingExtension._check_raycast`
+reads the same global for its own "is this pickup within interact range"
+check (`is_valid_social_wheel_pickup and distance <= INTERACT_RAY_DISTANCE`)
+- same root cause, same fix, just a second call site.
+
 ## Weapon zoom, entirely mod-owned (`set_zooming` / `switch_variable_zoom` hooks)
 
 Three earlier approaches to mirroring vanilla's own zoom-tier system in

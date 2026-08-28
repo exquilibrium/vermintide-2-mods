@@ -118,6 +118,31 @@ mod.get_owner_camera = function (self, owner_unit, world)
 	return ScriptViewport.camera(viewport)
 end
 
+-- Temporarily extends the shared vanilla INTERACT_RAY_DISTANCE global
+-- (2.5m by default - a real bare global, not a table field, also read by
+-- bot AI positioning in player_bot_base.lua, so NOT safe to change
+-- permanently) by `extra_distance`, for the exact synchronous duration of
+-- one interaction/pickup raycast. Returns the original value so the
+-- caller can restore it immediately after, the same "poke and restore"
+-- pattern used elsewhere in this file for Unit position/rotation, just
+-- applied to a global instead.
+--
+-- `extra_distance` must be the ACTUAL real-world gap between the
+-- third-person camera and the true first-person head position
+-- (Vector3.distance between the two, measured fresh by the caller before
+-- poking) - NOT just the camera_distance setting. Even at
+-- camera_distance = 0 the camera doesn't sit at the head/eye position:
+-- the shoulder x-offset, the height offset, and the third-person node's
+-- own baseline anchor point (not the head bone) all still contribute a
+-- real gap. See README.md ("Item pickup / interaction raycast").
+mod.extend_interact_ray_distance = function (self, extra_distance)
+	local original = INTERACT_RAY_DISTANCE
+
+	INTERACT_RAY_DISTANCE = original + extra_distance
+
+	return original
+end
+
 -- Applies the turn to a rotation: yaw pre-multiplied (world-space, immune to
 -- current pitch), pitch post-multiplied (local-space, roll-free on its own).
 -- See README.md ("Turn composition math") for the full derivation of why
@@ -429,6 +454,94 @@ mod:hook(PlayerUnitFirstPerson, "get_projectile_start_position_rotation", functi
 	local camera = mod:get_owner_camera(self.unit, self.world)
 
 	return ScriptCamera.position(camera), ScriptCamera.rotation(camera)
+end)
+
+-- The tag/ping raycast (the dedicated "Tag" key AND the regular
+-- ping/social-wheel targeting share this same function) has the identical
+-- head-bone-instead-of-camera problem as weapon fire above:
+-- ContextAwarePingExtension._check_raycast reads
+-- first_person_extension:current_position()/current_rotation(), which trace
+-- to Unit.local_position/local_rotation(first_person_unit, 0) - the
+-- character's own facing, not the camera - so pressing Tag in third person
+-- marks whatever the character's head is pointed at, not what's under the
+-- crosshair. Poke-and-restore first_person_unit for the exact synchronous
+-- duration of the call, same pattern as ActionChargedProjectile's _shoot
+-- hook below. No World.update_unit needed - like move_on_ground,
+-- current_position/current_rotation read Unit.local_position/local_rotation
+-- directly, which update immediately with no propagation delay.
+-- _is_camera_looking_at_position (the separate dark-pact/versus enemy-mark
+-- fallback) already uses first_person_extension:camera() - the real
+-- rendered camera - so it needs no fix. See README.md ("Tag/ping raycast").
+mod:hook(ContextAwarePingExtension, "_check_raycast", function (func, self, unit)
+	if not mod.third_person_active then
+		return func(self, unit)
+	end
+
+	local first_person_unit = self._first_person_extension.first_person_unit
+	local camera = mod:get_owner_camera(unit, self._world)
+	local camera_position = ScriptCamera.position(camera)
+	local camera_rotation = ScriptCamera.rotation(camera)
+	local original_position = Unit.local_position(first_person_unit, 0)
+	local original_rotation = Unit.local_rotation(first_person_unit, 0)
+	local original_interact_ray_distance = mod:extend_interact_ray_distance(Vector3.distance(camera_position, original_position))
+
+	Unit.set_local_position(first_person_unit, 0, camera_position)
+	Unit.set_local_rotation(first_person_unit, 0, camera_rotation)
+
+	local ping_unit, social_wheel_unit, ping_unit_distance, social_wheel_unit_distance, position = func(self, unit)
+
+	Unit.set_local_position(first_person_unit, 0, original_position)
+	Unit.set_local_rotation(first_person_unit, 0, original_rotation)
+	INTERACT_RAY_DISTANCE = original_interact_ray_distance
+
+	return ping_unit, social_wheel_unit, ping_unit_distance, social_wheel_unit_distance, position
+end)
+
+-- Item pickup / interaction detection (ammo crates, potions, levers,
+-- revive, etc.) has the same head-bone-instead-of-camera raycast origin
+-- problem as the tag/ping and weapon-fire hooks above -
+-- GenericUnitInteractorExtension.update's local-player branch also reads
+-- first_person_extension:current_position()/current_rotation() for its
+-- raycast. Same poke-and-restore fix, wrapping the WHOLE update() call
+-- rather than trying to intercept the raycast individually - the raycast
+-- is inlined directly in this large function rather than split into its
+-- own hookable method, and everything camera-relevant inside it runs
+-- synchronously within this one call, so bracketing the whole thing is
+-- both simpler and safer than reimplementing any of its logic.
+--
+-- Also extends INTERACT_RAY_DISTANCE for the same synchronous duration
+-- (see extend_interact_ray_distance) by the ACTUAL measured gap between
+-- the camera and the head, not just the camera_distance setting - even at
+-- camera_distance = 0 the camera doesn't sit at the head/eye position
+-- (shoulder x-offset, height offset, and the node's own baseline anchor
+-- point all still contribute), so a fixed-length raycast from the camera
+-- would otherwise fall short of items reachable in first person.
+-- User-reported: "it should raycast [from the camera], the distance needs
+-- to be longer, since the camera is further away."
+mod:hook(GenericUnitInteractorExtension, "update", function (func, self, unit, input, dt, context, t)
+	if not mod.third_person_active then
+		return func(self, unit, input, dt, context, t)
+	end
+
+	local first_person_extension = ScriptUnit.extension(unit, "first_person_system")
+	local first_person_unit = first_person_extension.first_person_unit
+	local camera = mod:get_owner_camera(unit, self.world)
+	local camera_position = ScriptCamera.position(camera)
+	local camera_rotation = ScriptCamera.rotation(camera)
+	local original_position = Unit.local_position(first_person_unit, 0)
+	local original_rotation = Unit.local_rotation(first_person_unit, 0)
+	local original_interact_ray_distance = mod:extend_interact_ray_distance(Vector3.distance(camera_position, original_position))
+
+	Unit.set_local_position(first_person_unit, 0, camera_position)
+	Unit.set_local_rotation(first_person_unit, 0, camera_rotation)
+
+	local result = func(self, unit, input, dt, context, t)
+
+	Unit.set_local_position(first_person_unit, 0, original_position)
+	Unit.set_local_rotation(first_person_unit, 0, original_rotation)
+	INTERACT_RAY_DISTANCE = original_interact_ray_distance
+
+	return result
 end)
 
 -- Beam Staff-specific compatibility fix. TourneyBalance (see

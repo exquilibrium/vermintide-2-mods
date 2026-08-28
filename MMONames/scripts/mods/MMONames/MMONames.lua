@@ -40,13 +40,15 @@ local function draw_icon(renderer, unit, camera, player_position, is_local_playe
 	local max_render_distance = mod:get("max_render_distance") or 255
 	local distance = Vector3.distance(head_pos, player_position)
 
-	-- Own tag only makes sense when actually seeing yourself from outside your own head. The
-	-- game's third-person camera states cover being hooked/grabbed/executed/awaiting respawn, but
-	-- third-party "third person mod"-style camera mods pull the camera back without ever touching
-	-- those states, so fall back to a plain distance check: camera far from your own head means
-	-- you're looking at yourself regardless of what moved the camera there.
-	if is_local_player and not mod.is_in_third_person and distance < FIRST_PERSON_DISTANCE_THRESHOLD then
-		return
+	-- Own tag only makes sense when actually seeing yourself from outside your own head. Normally
+	-- the game's own third-person camera states (hooked/grabbed/executed/awaiting respawn) are the
+	-- only source of truth. The ThirdPerson mod pulls the camera back without ever touching those
+	-- states though, so when it's loaded also fall back to a plain distance check: camera far from
+	-- your own head means you're looking at yourself regardless of what moved the camera there.
+	if is_local_player and not mod.is_in_third_person then
+		if not mod.third_person_mod_loaded or distance < FIRST_PERSON_DISTANCE_THRESHOLD then
+			return
+		end
 	end
 
 	if max_render_distance < distance or distance < min_render_distance then
@@ -169,6 +171,15 @@ end
 
 mod.is_in_third_person = false
 mod.is_in_third_person_timeout = 0
+
+-- The ThirdPerson mod drives the camera itself without going through the game's own third-person
+-- camera states, so the own-tag visibility check below needs a geometric fallback specifically
+-- when it's loaded (see the comment in draw_icon).
+mod.third_person_mod_loaded = false
+
+mod.on_all_mods_loaded = function ()
+	mod.third_person_mod_loaded = get_mod("ThirdPerson") ~= nil
+end
 
 mod:hook_safe(CameraStateFollowThirdPerson, "update", function (self, _, _, _, _, t)
 	if self.name == "follow_third_person" then
