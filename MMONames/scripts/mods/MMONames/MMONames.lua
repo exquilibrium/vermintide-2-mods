@@ -43,10 +43,15 @@ local function draw_icon(renderer, unit, camera, player_position, is_local_playe
 	-- Own tag only makes sense when actually seeing yourself from outside your own head. Normally
 	-- the game's own third-person camera states (hooked/grabbed/executed/awaiting respawn) are the
 	-- only source of truth. The ThirdPerson mod pulls the camera back without ever touching those
-	-- states though, so when it's loaded also fall back to a plain distance check: camera far from
-	-- your own head means you're looking at yourself regardless of what moved the camera there.
+	-- states though, so while it's loaded AND its own third-person mode is actually toggled on,
+	-- fall back to a plain distance check instead: camera far from your own head means you're
+	-- looking at yourself regardless of what moved the camera there. If it's loaded but currently
+	-- toggled off (player in its normal first-person view), skip the fallback entirely rather than
+	-- relying on the head/camera distance happening to stay small in that state.
 	if is_local_player and not mod.is_in_third_person then
-		if not mod.third_person_mod_loaded or distance < FIRST_PERSON_DISTANCE_THRESHOLD then
+		local third_person_mod_active = mod.third_person_mod and mod.third_person_mod.third_person_active
+
+		if not third_person_mod_active or distance < FIRST_PERSON_DISTANCE_THRESHOLD then
 			return
 		end
 	end
@@ -174,11 +179,11 @@ mod.is_in_third_person_timeout = 0
 
 -- The ThirdPerson mod drives the camera itself without going through the game's own third-person
 -- camera states, so the own-tag visibility check below needs a geometric fallback specifically
--- when it's loaded (see the comment in draw_icon).
-mod.third_person_mod_loaded = false
+-- while it's loaded AND its own third_person_active flag is true (see the comment in draw_icon).
+mod.third_person_mod = nil
 
 mod.on_all_mods_loaded = function ()
-	mod.third_person_mod_loaded = get_mod("ThirdPerson") ~= nil
+	mod.third_person_mod = get_mod("ThirdPerson")
 end
 
 mod:hook_safe(CameraStateFollowThirdPerson, "update", function (self, _, _, _, _, t)
