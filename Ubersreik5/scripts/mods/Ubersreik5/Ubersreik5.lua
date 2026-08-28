@@ -1,16 +1,13 @@
 local mod = get_mod("Ubersreik5")
 
--- Party size for adventure mode. Read by settings overrides below and by
--- every hook that needs to generalize a vanilla 4-player loop bound to 5.
--- Must be set before the MechanismSettings/MatchmakingSettings/PlayerManager
--- overrides run, since those execute immediately at mod-load time, not inside
--- a hook.
+-- Party size for adventure mode. Must be set before the settings overrides
+-- below run (mod-load time, not inside a hook). See README.md.
 MAX_PLAYERS = 5
 
 -- Removed MorePlayers 2 check
 
--- Reset the mod's own scoreboard-tracking state whenever we (re)enter the
--- inn or an adventure mission.
+-- Reset the mod's own scoreboard-tracking state on (re)entering the inn or
+-- an adventure mission. See README.md.
 mod:hook_safe(StateIngame, "on_enter", function (self)
 	local game_mode_key = Managers.state.game_mode:game_mode_key()
 
@@ -19,22 +16,10 @@ mod:hook_safe(StateIngame, "on_enter", function (self)
 	end
 end)
 
--- Restarting a map (vote retry, esc-menu retry, checkpoint retry - all
--- roads lead through LevelTransitionHandler.reload_level) reuses the same
--- StateIngame instance instead of exiting/re-entering it, so the on_enter
--- reset above never fires and stats from the previous attempt would
--- otherwise carry over.
---
--- This also covers vanilla's own native stats (kills/damage/etc - the
--- StatisticsDatabase backing everything CustomScoreboard.lua reads directly
--- off it). That db is created once per "venture" (Managers.venture.statistics,
--- see GameMechanismManager._on_venture_start) and only swapped for a fresh
--- one when the venture ends (returning to inn) - a same-venture restart never
--- touches it, so without this it accumulates across restarts too. Vanilla
--- itself defines StatisticsDatabase:reset_session_stats() for exactly this
--- (zeroes every registered player's session stat back to its default/
--- persistent value in place, no unregister/re-register needed) but never
--- calls it anywhere in real gameplay - only from its own unit test.
+-- Every restart path (vote/esc-menu/checkpoint retry, auto-reload on a party
+-- wipe) funnels through reload_level, unlike on_enter above. Also resets
+-- vanilla's own native stats and the stale cached-scoreboard field a
+-- reconnect catch-up clears for the same reason. See README.md.
 mod:hook_safe(LevelTransitionHandler, "reload_level", function (self, ...)
 	if PlayerScores ~= nil then
 		PlayerScores = {}
@@ -45,15 +30,19 @@ mod:hook_safe(LevelTransitionHandler, "reload_level", function (self, ...)
 	if statistics_db then
 		statistics_db:reset_session_stats()
 	end
+
+	if Managers.mechanism then
+		Managers.mechanism.synced_players_session_score = nil
+	end
 end)
 
--- Party/lobby/matchmaking capacity. These run immediately at mod-load
--- time (not inside a hook), so MAX_PLAYERS must already be set above.
+-- Party/lobby/matchmaking capacity. Runs at mod-load time, so MAX_PLAYERS
+-- must already be set above.
 MechanismSettings.adventure.party_data.heroes.num_slots = MAX_PLAYERS
 MatchmakingSettings.MAX_NUMBER_OF_PLAYERS = MAX_PLAYERS
 PlayerManager.MAX_PLAYERS = MAX_PLAYERS
 
--- 4 -> MAX_PLAYERS spawn slots for the event light spirits (e.g. Halescourge).
+-- 4 -> MAX_PLAYERS spawn slots for event light spirits (e.g. Halescourge).
 mod:hook(EventLightSpawnerExtension, "init", function (func, self, extension_init_context, unit, extension_init_data)
 	local world = extension_init_context.world
 
@@ -88,6 +77,7 @@ mod:hook(EventLightSpawnerExtension, "init", function (func, self, extension_ini
 end)
 
 -- 4 -> MAX_PLAYERS astar-check slots for the beastmen banner/standard aura.
+-- (Same idea as the light-spirit hook above.)
 mod:hook(BeastmenStandardExtension, "init", function (func, self, extension_init_context, unit, extension_init_data)
 	local world = extension_init_context.world
 
@@ -175,9 +165,8 @@ mod:hook(BeastmenStandardExtension, "init", function (func, self, extension_init
 	end
 end)
 
--- Other-party-member HUD frames: NUM_PARTY_MEMBERS in vanilla excludes
--- self (party size 4 -> 3 other frames), so use MAX_PLAYERS - 1, not
--- MAX_PLAYERS.
+-- Other-party-member HUD frames: vanilla's NUM_PARTY_MEMBERS excludes self,
+-- so MAX_PLAYERS - 1, not MAX_PLAYERS.
 mod:hook(UnitFramesHandler, "_create_party_members_unit_frames", function (func, self)
 	local unit_frames = self._unit_frames
 
@@ -189,11 +178,8 @@ mod:hook(UnitFramesHandler, "_create_party_members_unit_frames", function (func,
 end)
 
 -- Duplicate hero/career selection: stub the low-level primitives every
--- higher-level UI/flow function ultimately queries, rather than patching
--- each of those higher-level functions individually. This allows fully
--- identical duplicate hero+career picks (no "exact combo still blocked"
--- restriction) - simpler and matches a proven, more general 32-player mod
--- ("MorePlayers2") rather than the original Ubersreik Five's approach.
+-- higher-level UI/flow function queries, rather than patching each one.
+-- See README.md.
 mod:hook_origin(ProfileSynchronizer, "try_reserve_profile_for_peer", function (self, party_id, peer_id, profile_index, career_index)
 	self:_clear_profile_index_reservation(peer_id)
 	self._state:set_profile_index_reservation(party_id, profile_index, career_index, peer_id)
@@ -212,33 +198,11 @@ end)
 
 mod._bots_assigned_this_batch = {}
 
--- Vanilla's bot-hero-picker filters candidates by
--- profile_synchronizer:is_profile_in_use(profile_index), which we just
--- stubbed to always false above - so its priority sort would otherwise
--- deterministically pick the same hero for every bot. Replace it with a
--- random pick so bots don't all spawn as clones of each other.
+-- Stubbing is_profile_in_use above also blinds vanilla's bot-hero-picker to
+-- real usage, so it'd pick the same hero for every bot. Check real usage
+-- directly instead and pick randomly among what's free. See README.md.
 mod:hook(GameModeAdventure, "_get_first_available_bot_profile", function (func, self)
 	local available_profiles = self._available_profiles
-
-	-- profile_available_for_peer/is_profile_in_use are stubbed to always
-	-- report "free" (needed so humans can freely duplicate heroes), which
-	-- also blinded this vanilla function to real usage, so it picked
-	-- randomly with no preference at all. Check real usage directly
-	-- instead, so bots still default to one of each hero and only
-	-- duplicate when every hero is already taken.
-	--
-	-- Deliberately NOT Managers.party._player_statuses here: vanilla's own
-	-- bot/profile removal (ProfileSynchronizer._unassign_profiles_of_peer)
-	-- only clears the ProfileSynchronizer's own state - it never clears
-	-- status.profile_index on the party status entry, and nothing else
-	-- in party_manager.lua ever deletes a status entry either. So once a
-	-- bot has ever held a hero, that entry keeps reporting it as "used"
-	-- forever, even long after the bot is removed - which is exactly what
-	-- was still causing duplicates after removing and re-adding bots
-	-- (party state, unlike a single mission, survives map<->keep
-	-- transitions). Managers.player:players() is properly pruned on
-	-- disconnect/removal, and every player object (bot or human) has a
-	-- live :profile_index(), so this can't accumulate stale entries.
 	local used_profile_indices = {}
 
 	for _, player in pairs(Managers.player:players()) do
@@ -249,12 +213,7 @@ mod:hook(GameModeAdventure, "_get_first_available_bot_profile", function (func, 
 		end
 	end
 
-	-- _handle_bots below calls _add_bot in a tight loop to fill several
-	-- slots at once. Belt-and-suspenders against any within-batch timing
-	-- gap between one bot's pick landing on its player object and the
-	-- next bot's check seeing it: mod._bots_assigned_this_batch (reset
-	-- per fill cycle in _handle_bots below) is this function's own
-	-- immediate record of what it has already handed out this batch.
+	-- Belt-and-suspenders against a within-batch timing gap; see README.md.
 	for profile_index in pairs(mod._bots_assigned_this_batch) do
 		used_profile_indices[profile_index] = true
 	end
@@ -288,11 +247,8 @@ mod:hook(GameModeAdventure, "_get_first_available_bot_profile", function (func, 
 	return profile_index, bot_career_index
 end)
 
--- Bot-fill count: vanilla always fills every open party slot with bots
--- (max_bots = party.num_slots). Replace that target with a user-configured
--- count (mod option "numberofbots", read into the fillwithbots global by
--- on_all_mods_loaded/on_setting_changed below) so players can run with
--- fewer than a full 5-player party of bots.
+-- Bot-fill count: replaces vanilla's "always fill every slot" with the
+-- user-configured "numberofbots" setting (read into fillwithbots below).
 mod:hook(GameModeAdventure, "_handle_bots", function (func, self, t, dt)
 	local in_session = Managers.state.network ~= nil and not Managers.state.network.game_session_shutdown
 
@@ -339,12 +295,7 @@ mod:hook(GameModeAdventure, "_handle_bots", function (func, self, t, dt)
 end)
 
 -- Boss-kill achievement tracking hard-crashes the instant a 5th local
--- player exists (scripts/unit_extensions/generic/death_reactions.lua:
--- "while player_manager:local_player(local_player_id) ~= nil do if
--- local_player_id > 4 then ferror(...)"). Silence exactly that assert
--- rather than patching the underlying loop bound (deep engine-adjacent
--- achievement code); the only cost is the 5th player's boss-kill
--- achievement progress not being tracked for that instance.
+-- player exists; silence exactly that assert. See README.md.
 mod:hook(_G, "ferror", function (func, message, ...)
 	if message == "Sanity check, how did we get above 4 here?" then
 		return
@@ -353,26 +304,15 @@ mod:hook(_G, "ferror", function (func, message, ...)
 	return func(message, ...)
 end)
 
--- Defensive: scripts/ui/ui_passes.lua's text-draw pass unconditionally
--- reads ui_style.font_type to look up cached font height metrics, even on
--- the code path meant for widgets whose style provides a raw `font` table
--- instead of a named `font_type` string - if font_type is nil, that read
--- indexes FontHeights with a nil key and crashes ("table index is nil").
--- Hit this while starting to host with the new matchmaking/scoreboard
--- widgets added this session; couldn't pin down the exact widget from
--- static review of ~1000 lines of style tables, so guard the general
--- case instead of guessing further - fall back to a real, common font
--- whenever font_type is missing.
+-- Defensive: vanilla's text-draw pass crashes indexing FontHeights with a
+-- nil font_type on some widget style shapes. See README.md.
 mod:hook(_G, "UIGetFontHeight", function (func, gui, font_name, font_size)
 	return func(gui, font_name or "hell_shark", font_size)
 end)
 
--- AI clustering math used by the conflict director. cluster_positions:
--- fully dynamic (grows/shrinks its work queue, no fixed player-count
--- array), needs no changes for 5 players - copied here only to point at
--- vanilla's real implementation. These three caches are reused across
--- calls (mirrors vanilla's own module-level caches) rather than
--- reallocated every call.
+-- AI clustering math used by the conflict director. cluster_positions needs
+-- no changes for 5 players - copied only to point at vanilla's real
+-- implementation. See README.md and ConflictDirectorClustering.lua.
 local conflict_utils_clusters_sizes = {}
 local conflict_utils_cluster_index_lookup = {}
 local conflict_utils_work_queue = {}
@@ -453,22 +393,14 @@ mod:hook(ConflictUtils, "cluster_positions", function (func, positions, min_dist
 	return clusters, clusters_sizes, cluster_index_lookup
 end)
 
--- cluster_weight_and_loneliness feeds AI horde-director tuning only, not
--- correctness. Vanilla's real algorithm only handles up to 4 fixed
--- positions (a/b/c/d locals, a 4-entry max_cluster_score table) and
--- correctly generalizing it to 5 positions is error-prone (our own first
--- attempt at this had a confirmed under-counting bug). Stub it to a
--- constant instead, matching a proven, more general 32-player mod - this
--- only affects how "clustered vs spread out" the AI thinks the party is,
--- not any crash/correctness path.
+-- Stubbed to a constant rather than generalized to 5 (error-prone; only
+-- affects AI horde-pacing tuning, not correctness). See README.md.
 mod:hook_origin(ConflictUtils, "cluster_weight_and_loneliness", function ()
 	return 1, 1, 100
 end)
 
--- AdventureSpawning: data.health_state/table.is_empty(data) get
--- dereferenced without a nil-guard on a slot's game_mode_data - a timing
--- race around player disconnect/leave that isn't specific to player count
--- but is cheap insurance to add.
+-- Nil-guard a slot's game_mode_data against a player disconnect/leave
+-- timing race (not player-count-specific, just cheap insurance).
 mod:hook(AdventureSpawning, "_assign_data_to_slot", function (func, self, slot, data)
 	if not data then
 		return
@@ -496,10 +428,8 @@ table.is_empty = function (t)
 	return original_table_is_empty(t)
 end
 
--- Deus/Chaos Wastes map board only has 4 authored token-placement poses
--- (referenced_token_poses is baked into level data, not something a mod
--- can resize) - a 5th player's board token would index a nil pose.
--- Simplest correct fix: just don't place a token for player slots beyond 4.
+-- Deus/Chaos Wastes board only has 4 authored token poses (baked into
+-- level data); don't place a token for slot 5. See README.md.
 mod:hook(DeusMapScene, "_place_token", function (func, self, profile_index, slot, node_key)
 	if slot > 4 then
 		return
@@ -508,10 +438,8 @@ mod:hook(DeusMapScene, "_place_token", function (func, self, profile_index, slot
 	return func(self, profile_index, slot, node_key)
 end)
 
--- Defensive: return safe defaults for health-related fields instead of
--- erroring when a game object hasn't finished syncing yet - a timing race
--- that becomes more likely with more simultaneous peers, not something
--- tied to a specific player count.
+-- Defensive: safe defaults for health fields instead of erroring on an
+-- unsynced game object (more likely with more simultaneous peers).
 mod:hook(GameSession, "game_object_field", function (func, game, go_id, key)
 	if not GameSession.game_object_exists(game, go_id) then
 		if key == "current_health" or key == "temporary_health" or key == "current_temporary_health" or key == "max_health" then
@@ -524,23 +452,11 @@ mod:hook(GameSession, "game_object_field", function (func, game, go_id, key)
 	return func(game, go_id, key)
 end)
 
--- Full end-of-level scoreboard (real 5th panel + scrollbar + extra stat
--- columns), matching the original Ubersreik Five mod's design.
+-- See README.md for what each of these does and why.
 mod:dofile("scripts/mods/Ubersreik5/CustomScoreboard")
 mod:dofile("scripts/mods/Ubersreik5/CustomScoreboardScoresFunctions")
-
--- 5th-player readiness dot on the matchmaking overlay, matching the
--- original Ubersreik Five mod's design.
 mod:dofile("scripts/mods/Ubersreik5/MatchmakingPartySlot5")
-
--- AI Director player-clustering (horde spawn positioning, pacing,
--- loneliest-player targeting) extended to see a 5th player, matching the
--- original Ubersreik Five mod's design.
 mod:dofile("scripts/mods/Ubersreik5/ConflictDirectorClustering")
-
--- Skips the real end-of-level loot request: generate_end_of_level_loot
--- sends the full player roster to a remote Playfab CloudScript call we
--- don't control, and that backend logic isn't built for a 5th player.
 mod:dofile("scripts/mods/Ubersreik5/SkipEndOfLevelLoot")
 
 mod.on_all_mods_loaded = function ()

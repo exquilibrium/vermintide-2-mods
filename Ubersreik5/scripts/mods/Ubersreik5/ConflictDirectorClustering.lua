@@ -1,24 +1,9 @@
 local mod = get_mod("Ubersreik5")
 
--- AI Director player-position clustering (scripts/managers/conflict_director/
--- conflict_utils.lua), hardcoded to at most 4 players/bots. Called constantly
--- throughout a mission - horde_spawner.lua uses cluster_positions to decide
--- WHERE to spawn hordes relative to the party, conflict_director.lua uses
--- both for pacing, and perception_utils.lua uses cluster_weight_and_loneliness
--- to pick which player is most "lonely" (e.g. who an isolated-player-seeking
--- special like a Gutter Runner should target). Without patching these, a 5th
--- player's position is silently invisible to all of that - not a visual bug,
--- a whole-mission gameplay-pacing one.
---
--- Full replace rather than wrapping vanilla's func: both originally close
--- over module-level scratch tables reused across calls as a performance
--- optimization (avoids a table allocation per call) - those locals aren't
--- reachable from a hook, and reusing them at a different size would need
--- reimplementing anyway. Using a fresh table per call instead is simpler and
--- avoids a real correctness bug that optimization has: cluster_positions's
--- scratch queue only gets reset up to its old fixed size, so a call with
--- fewer positions right after a call with more would see stale leftover
--- entries and miscount how many are actually queued.
+-- AI Director player-position clustering, hardcoded to at most 4 players/
+-- bots in vanilla - extended to 5 as a full replace (not a wrapper), since
+-- vanilla's own scratch-table reuse isn't reachable from a hook and has a
+-- correctness bug anyway. See README.md.
 
 mod:hook(ConflictUtils, "cluster_positions", function (func, positions, min_dist)
 	local clusters = {
@@ -76,12 +61,8 @@ mod:hook(ConflictUtils, "cluster_positions", function (func, positions, min_dist
 	return clusters, clusters_sizes, cluster_index_lookup
 end)
 
--- Same hand-unrolled pairwise-distance shape vanilla uses for 1-4 positions
--- (kept identical, including index 5's max score following the same C(n,2)
--- pattern index 3 (3) and 4 (6) already use), extended with a 5th position e.
--- Processed highest-index-down so each block's cross-terms (e.g. cd, ce) are
--- already computed by the time a lower block needs them, exactly mirroring
--- vanilla's own d-then-c-then-b-then-a ordering.
+-- Same hand-unrolled pairwise-distance shape vanilla uses for 1-4 positions,
+-- extended with a 5th (e). See README.md.
 local CLUSTER_MAX_SCORE = {
 	1,
 	2,

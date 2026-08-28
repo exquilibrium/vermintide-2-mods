@@ -1,33 +1,18 @@
 local mod = get_mod("Ubersreik5")
 
 -- End-of-level scoreboard: a real 5th player panel + a scrollbar for extra
--- stat columns, matching the original Ubersreik Five mod's design. Vanilla's
--- own row widgets (UIWidgets.create_score_entry/create_score_topics) bake in
--- their row count and *size* at widget-creation time (a `size` constructor
--- parameter, not something read live from the scenegraph node) - so getting
--- players 1-4 to actually render thinner/taller requires fully recreating
--- those widgets with the new size, not just resizing their scenegraph nodes.
+-- stat columns. See README.md for why this needs full widget recreation
+-- rather than just resizing scenegraph nodes.
 
 -- Row capacity to build every score widget with (independent of how many
--- rows are actually shown at once - see mod.scoreboard.rows below). Matches
--- the original mod's own widget-creation row count.
+-- rows are shown at once - see mod.scoreboard.rows below).
 local WIDGET_ROW_CAPACITY = 25
 
 mod.scores = {}
 
--- Row layout math below (header offset 80, row height 39) mirrors vanilla's
--- own UIWidgets.create_score_entry/create_score_topics: both lay out row k at
--- y = size[2] - 80 - k * row_bg_settings.size[2], where row_bg_settings comes
--- from the "scoreboard_topic_bg" atlas entry (scripts/ui/atlas_settings/
--- gui_menus_atlas.lua) - 39px tall, not the round 40 you'd guess. Sizing the
--- panel for anything but exactly header + rows_default * 39 leaves dead space
--- below the last row that grows by the same amount at every "extend" value
--- (extension adds height 1:1 per row, so the mismatch never gets absorbed).
--- BOTTOM_PADDING_ROWS adds exactly that much dead space back deliberately -
--- it's added to the base size (not run through extension()), so it stays a
--- constant 1 empty row of padding below the last row at every "extend" value,
--- without shifting the scrollbar's visible_rows count (which only counts
--- real content rows).
+-- Row layout math mirrors vanilla's own row-height formula (39px, not 40).
+-- BOTTOM_PADDING_ROWS cancels out dead space that otherwise grows with the
+-- "extend" setting. See README.md.
 local BOTTOM_PADDING_ROWS = 1
 
 mod.scoreboard = {
@@ -86,13 +71,8 @@ mod.register_entry = function (self, id, text, sort_type, callback)
 	return self.custom_entries:register(id, text, sort_type, callback)
 end
 
--- Scrollbar. Index space is into self._scoreboard_rows (built in
--- _setup_score_panel below): row 1 (player names) is fixed and never part of
--- this; the scrollbar covers rows 2..(1 + total scrollable rows). Manual
--- (mouse wheel / gamepad) scrolling only - the original's idle auto-scroll
--- animation had the heaviest decompiler corruption of anything in this file
--- (unclear timing constants, several undefined locals) and is skipped as a
--- deliberate simplification rather than guessed at.
+-- Scrollbar over self._scoreboard_rows (row 1, player names, is fixed and
+-- excluded). Manual scroll only - see README.md for why.
 mod.scrollbar = {
 	start_index = 1,
 	total_rows = 0,
@@ -167,36 +147,15 @@ mod.scrollbar = {
 	end,
 }
 
--- init_scenegraph only needs to add player_panel_5/player_frame_5 (the
--- widgets consuming panels 1-4 get fully recreated in create_ui_elements
--- below regardless, but the scenegraph *nodes* for 1-4 still need their
--- size/position updated since UISceneGraph resolves world positions from
--- these). Only patch EndViewStateScore's scenegraph: init_scenegraph is
--- shared by dozens of unrelated UI screens; player_panel_4 + scores_topics
--- together are a shape unique to the end-of-level score screen.
---
--- Single init_scenegraph hook for the whole mod: this modding framework does
--- not chain multiple mod:hook registrations from the SAME mod on the SAME
--- (table, method) pair - only the first one to register actually takes
--- effect, later ones silently never fire. So every UISceneGraph.
--- init_scenegraph patch (this scoreboard one, and the matchmaking party_slot_5
--- one below) has to live in this one hook, each behind its own independent
--- shape check, rather than each registering its own separate hook.
+-- Only patches EndViewStateScore's scenegraph (checked via its unique
+-- player_panel_4 + scores_topics shape) - and doubles as the matchmaking
+-- party_slot_5 patch below, since this framework can't chain two hooks on
+-- the same (table, method) pair. See README.md.
 mod:hook(UISceneGraph, "init_scenegraph", function (func, scenegraph_def, ...)
 	if scenegraph_def.player_panel_4 and scenegraph_def.scores_topics then
 		local panel_size = mod.scoreboard:player_score_size()
-		-- UIRenderer.begin_pass calls UISceneGraph.update_scenegraph every frame
-		-- (scripts/ui/ui_renderer.lua), which *does* apply vertical_alignment via
-		-- align() - against the engine's real per-resolution screen height, not a
-		-- hardcoded 1080. With vertical_alignment "top", a child's top edge
-		-- resolves to position[2] + screen_height regardless of the child's own
-		-- size - so pinning TOP_OFFSET here needs no compensation for
-		-- mod.scoreboard:extension() at all (unlike "center", which would need
-		-- half the size delta subtracted to hold an edge fixed), and it stays
-		-- correct across resolutions/aspect ratios since screen_height comes from
-		-- the engine instead of an assumed 1080. player_frame_i (portraits) and
-		-- the level icon attach "top" further down this same parent chain, so
-		-- they inherit this fixed position automatically.
+		-- "top" alignment needs no extension()-size compensation, unlike
+		-- "center" would. See README.md.
 		local TOP_OFFSET = -220
 
 		scenegraph_def.scores_topics.horizontal_alignment = "center"
@@ -205,22 +164,12 @@ mod:hook(UISceneGraph, "init_scenegraph", function (func, scenegraph_def, ...)
 		scenegraph_def.scores_topics.position[1] = -700
 		scenegraph_def.scores_topics.position[2] = TOP_OFFSET
 
-		-- scenegraph_def is vanilla's own module-level table (scripts/ui/views/
-		-- level_end/states/definitions/end_view_state_score_definitions.lua),
-		-- shared/reused for every scoreboard built for the rest of the game
-		-- session - not recreated per build. So player_panel_5/player_frame_5/
-		-- scrollbar must only be added once (they'd otherwise just be
-		-- overwritten harmlessly, but there's no reason to redo it), while
-		-- everything below that depends on the *current* "extend" setting (size,
-		-- position[2], vertical_alignment) must run on every call - otherwise a
-		-- setting change after the first scoreboard of the session never takes
-		-- effect on the scenegraph (create_ui_elements still rebuilds the
-		-- widgets fresh every time against the stale, frozen anchor, which is
-		-- what made the panel look bottom-anchored again after changing "extend"
-		-- more than once without reloading).
+		-- scenegraph_def is vanilla's shared module-level table, so add-once
+		-- guard the new nodes, but keep re-applying "extend"-dependent sizing
+		-- below on every call. See README.md.
 		if not scenegraph_def.player_panel_5 then
-			-- vertical_alignment/position[2] are placeholders here - the loop
-			-- below overwrites both for all 5 panels, including this one.
+			-- vertical_alignment/position[2] are placeholders; the loop below
+			-- overwrites both for all 5 panels.
 			scenegraph_def.player_panel_5 = {
 				vertical_alignment = "center",
 				horizontal_alignment = "center",
@@ -273,11 +222,8 @@ mod:hook(UISceneGraph, "init_scenegraph", function (func, scenegraph_def, ...)
 		scenegraph_def.scrollbar.size[2] = panel_size[2] - 80
 	end
 
-	-- Matchmaking overlay's 5th-player readiness dot (see
-	-- MatchmakingPartySlot5.lua) - party_slot_N widgets attach to this node,
-	-- so it needs to exist before MatchmakingUI.create_ui_elements builds
-	-- them. party_slot_4 + party_slot_root together are a shape unique to
-	-- the matchmaking screen.
+	-- Matchmaking overlay's party_slot_5 node - see MatchmakingPartySlot5.lua
+	-- and README.md.
 	if scenegraph_def.party_slot_4 and scenegraph_def.party_slot_root and not scenegraph_def.party_slot_5 then
 		scenegraph_def.party_slot_5 = {
 			vertical_alignment = "center",
@@ -298,16 +244,8 @@ mod:hook(UISceneGraph, "init_scenegraph", function (func, scenegraph_def, ...)
 	return func(scenegraph_def, ...)
 end)
 
--- Vanilla's own entrance animation (transition_enter's move_inner_panels /
--- move_outer_panels, in end_view_state_score_definitions.lua) directly
--- overwrites player_panel_1-4's local_position[1] every frame, sliding them
--- to vanilla's hardcoded 4-player rest spots (-700, -375, 375, 700) -
--- overriding whatever init_scenegraph set as their base position. Since
--- player_panel_5 has no animation entry of its own, it just sits at its
--- init_scenegraph position (650), landing on top of panels 3/4's vanilla
--- rest spots. Re-registering both callbacks with new rest spots (evenly
--- spaced alongside the topics column at -700 and panel 5 at 650) is how the
--- original mod fixed this; same fix, same rest-spot values.
+-- Re-registers vanilla's entrance-animation rest spots for panels 1-4 so
+-- panel 5 (position 650) doesn't land on top of them. See README.md.
 local function move_inner_panels(ui_scenegraph, scenegraph_definition, widgets, progress, params)
 	local anim_progress = math.easeInCubic(1 - progress)
 
@@ -322,10 +260,8 @@ local function move_outer_panels(ui_scenegraph, scenegraph_definition, widgets, 
 	ui_scenegraph.player_panel_4.local_position[1] = 400 + 400 * anim_progress
 end
 
--- Full replace: call vanilla's own create_ui_elements first (creates
--- player_panel_1-4's widgets at vanilla's default size, and the default
--- scores_topics widget), then rebuild scores_topics and all 5 score widgets
--- at our size/row-capacity, matching the original mod's approach.
+-- Calls vanilla's create_ui_elements first, then rebuilds scores_topics and
+-- all 5 score widgets at this mod's size/row-capacity.
 mod:hook(EndViewStateScore, "create_ui_elements", function (func, self, params)
 	func(self, params)
 
@@ -366,27 +302,10 @@ mod:hook(EndViewStateScore, "create_ui_elements", function (func, self, params)
 	mod.scrollbar:create(self)
 end)
 
--- Vanilla's own _setup_player_scores/_setup_score_panel already handle a 5th
--- player correctly once _score_widgets[5] exists (they iterate however many
--- players are actually in players_session_scores, not a hardcoded 4) - no
--- need to replace that logic. This just captures the per-player stats_id
--- list, in the SAME order vanilla assigns widget indices, for the
--- custom-entry callbacks below. Must run BEFORE calling through to vanilla,
--- not hook_safe after: vanilla's own _setup_player_scores calls
--- _setup_score_panel internally near its own end, and that hook (below)
--- depends on _stats_id_by_widget_index already being set.
---
--- Deliberately NOT table.sort()-ed: vanilla's own widget_index assignment
--- (further down in this same function, for _players_by_widget_index/
--- _score_widgets) is a plain incrementing counter over its own
--- pairs(players_session_scores) loop - unsorted. A previous version of this
--- sorted stats_ids alphabetically for (mistaken) determinism, which put our
--- list in a different order than vanilla's, so self._stats_id_by_widget_index
--- [i] and vanilla's own player at widget index i were often two different
--- players - misattributing every custom stat column to the wrong player.
--- Plain pairs() with no sort here lands in the exact same order vanilla's own
--- subsequent pairs() call over this same, unmodified table does (Lua's
--- pairs()/next() iteration order is deterministic for an unchanged table).
+-- Captures the per-player stats_id list, in vanilla's own widget-index
+-- order (must run BEFORE calling through - see README.md for why sorting
+-- this breaks player-to-column attribution), then nils out unused trailing
+-- hero/score widget slots so no empty panel renders. See README.md.
 mod:hook(EndViewStateScore, "_setup_player_scores", function (func, self, players_session_scores)
 	local stats_ids = {}
 
@@ -397,15 +316,6 @@ mod:hook(EndViewStateScore, "_setup_player_scores", function (func, self, player
 	self._stats_id_by_widget_index = stats_ids
 
 	local result = func(self, players_session_scores)
-
-	-- Both _hero_widgets (vanilla's own, pre-created at a fixed 4 slots in
-	-- create_ui_elements) and _score_widgets (this mod's, pre-created at a
-	-- fixed 5 slots) are built before the real player count is known. The
-	-- loop above only overwrites slots 1..num_players with a real player's
-	-- widget, so any slot beyond that still holds its original empty
-	-- placeholder - an extra panel/frame with no player in it. Nil those
-	-- trailing slots out so vanilla's own draw() (which walks both arrays
-	-- with ipairs, stopping at the first nil) simply skips them.
 	local num_players = #stats_ids
 
 	for index = num_players + 1, #self._hero_widgets do
@@ -419,9 +329,8 @@ mod:hook(EndViewStateScore, "_setup_player_scores", function (func, self, player
 	return result
 end)
 
--- After vanilla writes its own native rows (1 name row + 1 per stat topic)
--- into _score_widgets[1..N].content, append our custom entries as
--- additional scrollable rows.
+-- Appends the mod's custom entries as scrollable rows after vanilla's own
+-- native rows.
 mod:hook_safe(EndViewStateScore, "_setup_score_panel", function (self, score_panel_scores, player_names)
 	local num_players = #self._stats_id_by_widget_index
 	local native_row_count = 1
@@ -535,10 +444,8 @@ mod:hook_safe(EndViewStateScore, "update", function (self, dt, t)
 	end
 end)
 
--- Own begin_pass/end_pass: vanilla's real draw() already ended its own pass
--- by the time a hook_safe body runs, so drawing the scrollbar needs a
--- separate pass, not a bare draw_widget call after the fact (that crashes -
--- self.ui_renderer.ui_scenegraph is nil once a pass has ended).
+-- Own begin_pass/end_pass: vanilla's pass has already ended by the time
+-- hook_safe runs, so a bare draw_widget call here would crash.
 mod:hook_safe(EndViewStateScore, "draw", function (self, input_service, dt)
 	if not self._scoreboard_rows then
 		return

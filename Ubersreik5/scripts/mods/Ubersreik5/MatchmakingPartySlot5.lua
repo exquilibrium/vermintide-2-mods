@@ -1,38 +1,19 @@
 local mod = get_mod("Ubersreik5")
 
--- 5th-player readiness dot on the matchmaking overlay (the small light next
--- to the party portraits that goes green when a player is standing in the
--- "ready to proceed" zone, blue otherwise). All of that logic is 100%
--- vanilla and already player-count-agnostic:
--- MatchmakingUI._sync_players_ready_state checks each human player's
--- status_extension:is_in_end_zone() and calls _set_player_ready_state, which
--- swaps player_status_N's texture between "matchmaking_light_01" (ready) and
--- "matchmaking_light_02" (not ready) - and every loop involved
--- (_get_party_slot_index_by_peer_id, _update_portraits, _get_portrait_index)
--- is bounded by self._max_number_of_players, not a hardcoded 4. So the only
--- thing actually missing for a 5th player is the widget/scenegraph entries
--- themselves - matches the original Ubersreik Five mod's own scope here
--- (scripts/ui/views/matchmaking_ui_definitions.lua, just party_slot_5 and
--- player_status_5 added at reasonable positions, no custom logic).
+-- 5th-player readiness dot on the matchmaking overlay. The readiness logic
+-- itself is 100% vanilla and already player-count-agnostic - only the
+-- widget/scenegraph entries were missing. See README.md.
 
 -- Same size party_slot_1-4 use. The actual party_slot_5 scenegraph node is
--- added in CustomScoreboard.lua's init_scenegraph hook, not here - this mod
--- framework doesn't chain multiple mod:hook registrations from the same mod
--- on the same (table, method) pair (only the first one to register actually
--- takes effect), and CustomScoreboard.lua's scoreboard hook on
--- UISceneGraph.init_scenegraph already existed first, so that's where every
--- init_scenegraph patch for this mod has to live. This constant just needs
--- to match the size used there.
+-- added in CustomScoreboard.lua's init_scenegraph hook, not here - see
+-- README.md.
 local PARTY_SLOT_5_SIZE = {
 	60,
 	70,
 }
 
 -- Mirrors the private create_status_widget() local in vanilla's
--- matchmaking_ui_definitions.lua (not exposed via UIWidgets, so it can't be
--- called directly) - every player_status_N widget is built from this same
--- shape, differing only by their offset into the shared "window" scenegraph
--- node.
+-- matchmaking_ui_definitions.lua (not exposed via UIWidgets).
 local function create_status_widget(texture, offset)
 	return {
 		scenegraph_id = "window",
@@ -92,17 +73,14 @@ local function create_status_widget(texture, offset)
 	}
 end
 
--- Same offset the original mod used: same Y as player_status_1 (43), further
--- left (-171 vs -89) so it sits its own gap to the left of the 1-4 row.
+-- Same Y as player_status_1 (43), further left so it sits its own gap.
 local PLAYER_STATUS_5_OFFSET = {
 	-171,
 	43,
 }
 
--- Unlike the scenegraph_definition table above (module-level, shared, so it
--- needs the once-guard), create_ui_elements builds self._widgets/
--- self._widgets_by_name/etc fresh every single call - so no "already added"
--- guard is needed here, this just runs after vanilla's own body every time.
+-- create_ui_elements rebuilds self._widgets fresh every call, so no
+-- "already added" guard is needed here (unlike the scenegraph hook above).
 mod:hook_safe(MatchmakingUI, "create_ui_elements", function (self)
 	UIUtils.create_widgets({
 		player_status_5 = create_status_widget("matchmaking_light_02", PLAYER_STATUS_5_OFFSET),
@@ -122,12 +100,8 @@ mod:hook_safe(MatchmakingUI, "create_ui_elements", function (self)
 	}, self._detail_widgets, self._detail_widgets_by_name)
 end)
 
--- _update_status spins each party_slot's "connecting..." icon while its
--- player is still loading in - unlike every other per-slot loop in this
--- file, it hardcodes "for i = 1, 4" instead of self._max_number_of_players,
--- so party_slot_5's connecting icon would silently never spin. Duplicate
--- just that one calculation for slot 5 rather than touching vanilla's own
--- loop for 1-4.
+-- Vanilla's "connecting..." icon spinner hardcodes "for i = 1, 4", so
+-- party_slot_5 would never spin. Duplicated here for slot 5 only.
 mod:hook_safe(MatchmakingUI, "_update_status", function (self, dt)
 	if self._active_mechanism == "versus" then
 		return

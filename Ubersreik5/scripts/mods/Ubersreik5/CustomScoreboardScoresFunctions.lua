@@ -1,11 +1,8 @@
 local mod = get_mod("Ubersreik5")
 
 -- Extra per-player stat columns for the end-of-level scoreboard, on top of
--- vanilla's own (kills/damage/revives/etc, already read straight out of the
--- vanilla StatisticsDB by CustomScoreboard.lua). Everything here is
--- hook_safe (side-effect only, after vanilla's real logic runs) and keyed by
--- PlayerScores[stats_id][stat_name], reset each time we (re)enter the
--- inn/adventure (see the on_enter hook in Ubersreik5.lua).
+-- vanilla's own. Keyed by PlayerScores[stats_id][stat_name]; reset by
+-- Ubersreik5.lua. See README.md.
 
 PlayerScores = {}
 
@@ -138,10 +135,8 @@ mod:hook_safe(StatisticsUtil, "register_damage", function (victim_unit, damage_d
 	local stats_id = attacker_player:stats_id()
 	local scores = get_player_scores(stats_id)
 
-	-- Clamp overkill the same way vanilla's own StatisticsUtil.register_damage
-	-- does for "damage_dealt" (called before health is actually reduced, so
-	-- current_health here is still the pre-hit value) - otherwise a lethal hit
-	-- with damage far beyond the target's remaining health inflates our totals.
+	-- Clamp overkill the same way vanilla's own register_damage does for
+	-- "damage_dealt", so a lethal hit doesn't inflate our totals. See README.md.
 	local victim_health_extension = ScriptUnit.has_extension(victim_unit, "health_system")
 
 	if victim_health_extension then
@@ -241,41 +236,8 @@ mod:hook_safe(PingSystem, "_handle_ping", function (self, ping_type, social_whee
 	scores.pings = (scores.pings or 0) + 1
 end)
 
--- Host-authoritative catch-up sync, modeled on a proven pattern found in
--- MorePlayers2 (scripts/mods/MorePlayers2/src/ui/custom_scoreboard.lua) - a
--- more mature, higher-player-count mod solving the exact same problem: a
--- player who relaunches the game to reconnect gets a fresh, empty
--- statistics_db and PlayerScores, with no way to recover values for events
--- it wasn't present for. Two things make this more robust than what this
--- file tried before (a version that broadcast PlayerScores - and briefly,
--- vanilla's own huge players_session_scores structure - at scoreboard-open
--- time, and silently failed to deliver anything):
---
--- 1. This triggers on mod.on_user_joined, which fires the moment a player
---    (re)joins the party, mid-mission - not at scoreboard-open time. That
---    sidesteps vanilla's own native-stat sync (GameMechanismManager.
---    sync_players_session_score / rpc_sync_players_session_score) and its
---    one-shot-no-retry limitation entirely, since this fires because the
---    join itself just happened, and it means the fix is already in place
---    long before any scoreboard ever gets built for this mission - no need
---    to force a re-render afterward.
--- 2. For native stats, it writes straight into the receiving client's own
---    statistics_db via StatisticsDatabase:modify_stat_by_amount(stats_id,
---    stat_name, value) rather than fighting vanilla's players_session_scores/
---    _setup_player_scores pipeline - vanilla's own scoreboard already reads
---    from that same statistics_db, so nothing else needs to change. Compound
---    topics (kills_elites, kills_specials, damage_dealt_bosses - each a SUM
---    across several kills_per_breed/damage_dealt_per_breed sub-stats, not a
---    single stored value) get the whole delta dumped into just their first
---    sub-stat-type, same as MorePlayers2 does it - the scoreboard only ever
---    shows the summed total, never a per-breed breakdown, so which specific
---    sub-stat absorbs it doesn't matter.
---
--- modify_stat_by_amount ADDS the given amount to whatever's already stored,
--- it doesn't set an absolute value - this only stays correct because
--- on_user_joined fires essentially immediately after joining, before the
--- rejoining player has generated any stats of their own yet, so their local
--- value is still at its fresh baseline (same assumption MorePlayers2 makes).
+-- Host-authoritative catch-up sync for a player who relaunches mid-mission
+-- to reconnect (modeled on MorePlayers2's pattern). See README.md.
 local function get_native_stat(statistics_db, stats_id, topic)
 	if topic.stat_types then
 		local total = 0
@@ -304,25 +266,10 @@ local function apply_native_stat_delta(statistics_db, stats_id, topic, delta)
 	end
 end
 
--- StatisticsDatabase:unregister(stats_id) / :register(stats_id, ...)
--- (scripts/managers/player/player_manager.lua) run on EVERY connected
--- machine's own local statistics_db, not just the disconnecting/joining
--- player's own client - whenever ANY player leaves, everyone else's
--- (including the HOST's) local copy of their native stats gets unregistered,
--- and a fresh, zeroed entry gets created when they rejoin. This is the real
--- root cause behind every native-stat symptom seen so far: by the time a
--- disconnected player reconnects, even the HOST's own statistics_db entry
--- for them may already be gone - so reading statistics_db at on_user_joined
--- time (what this file did before) can itself already be reading the
--- wiped/reset value, regardless of any sync mechanism, and there is no way
--- to recover a value that's already gone from the only place being read.
---
--- The fix: snapshot a player's native stats into our OWN table, independent
--- of statistics_db, right BEFORE unregister() wipes them - this needs a full
--- mod:hook (not hook_safe) so the snapshot happens before the underlying
--- data is actually removed. That snapshot then becomes the source of truth
--- for the catch-up sync below, instead of a live (possibly already-reset)
--- statistics_db read.
+-- unregister()/register() run on EVERY connected machine's own local
+-- statistics_db, not just the leaving/joining player's - so a value can be
+-- gone before we ever get to read it. Snapshot before the wipe instead.
+-- See README.md.
 local NativeStatsSnapshot = {}
 
 mod:hook(StatisticsDatabase, "unregister", function (func, self, stats_id, ...)
@@ -337,17 +284,9 @@ mod:hook(StatisticsDatabase, "unregister", function (func, self, stats_id, ...)
 	return func(self, stats_id, ...)
 end)
 
--- One network_send call per TEAMMATE, not one covering the whole party:
--- mod:network_send ultimately goes through ModManager.network_send ->
--- RPC.rpc_mod_user_data (scripts/managers/mod/mod_manager.lua) - a real
--- engine RPC, which typically has a strict size limit on its parameters.
--- MorePlayers2's own version of this (the pattern this is modeled on) sends
--- one small message per teammate in a loop, each carrying only 3 numbers -
--- not one message covering every player and stat at once. An earlier version
--- of this combined everything (every teammate, every stat) into a single
--- message and it silently delivered nothing, twice, even after trimming the
--- payload shape - matching an RPC size limit being exceeded rather than a
--- shape/type problem.
+-- One network_send call per teammate, not one covering the whole party -
+-- a single combined message silently delivers nothing (RPC size limit).
+-- See README.md.
 local CATCHUP_PACKAGE_ID = "ubersreik5_catchup"
 
 local function apply_native_catchup(statistics_db, stats_id, native)
@@ -366,18 +305,8 @@ mod:network_register(CATCHUP_PACKAGE_ID, function (sender_peer_id, stats_id, dat
 	if statistics_db and data.native then
 		apply_native_catchup(statistics_db, stats_id, data.native)
 
-		-- GameMechanismManager.get_players_session_score
-		-- (scripts/managers/game_mode/game_mechanism_manager.lua) caches
-		-- vanilla's own native-stat sync the first time it arrives (`if
-		-- self.synced_players_session_score then return
-		-- self.synced_players_session_score end`) and never re-reads
-		-- statistics_db live again for the rest of the mission once that's
-		-- set. Clear it so a later scoreboard build re-reads statistics_db
-		-- live (picking up what we just wrote) instead of an earlier,
-		-- possibly stale, frozen snapshot. Vanilla's own sync (fires once,
-		-- at mission end) will re-cache a fresh one later regardless, and by
-		-- then the host's own copy should also be correct (see
-		-- mod.on_user_joined below), so that later re-cache stays correct too.
+		-- Clear vanilla's cached scoreboard snapshot so it re-reads live.
+		-- Same reasoning as Ubersreik5.lua's reload_level hook; see README.md.
 		if Managers.mechanism then
 			Managers.mechanism.synced_players_session_score = nil
 		end
@@ -403,19 +332,12 @@ mod.on_user_joined = function (player)
 		local stats_id = teammate:stats_id()
 
 		if stats_id then
-			-- Prefer the pre-disconnect snapshot over a live statistics_db
-			-- read: if this teammate (which may be the rejoining player
-			-- themselves, or anyone else who dis/reconnected earlier this
-			-- mission) was ever unregistered, statistics_db may already be
-			-- sitting at a freshly-reset baseline by now.
+			-- Prefer the pre-disconnect snapshot over a live read, which may
+			-- already be reset. See README.md.
 			local native = NativeStatsSnapshot[stats_id]
 
 			if native then
-				-- The host's own copy needs the same restoration as the
-				-- joining client's - it went through the same unregister/
-				-- register reset. Without this, vanilla's own native-stat
-				-- sync (fires once, at mission end) would just re-propagate
-				-- the host's still-wiped value to everyone later anyway.
+				-- The host's own copy needs this restoration too. See README.md.
 				apply_native_catchup(statistics_db, stats_id, native)
 				NativeStatsSnapshot[stats_id] = nil
 			else
