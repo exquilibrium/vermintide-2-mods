@@ -121,6 +121,21 @@ mod.get_owner_camera = function (self, owner_unit, world)
 	return ScriptViewport.camera(viewport)
 end
 
+-- mod.third_person_active is a single flag for "the local human player has
+-- third person on" - it says nothing about which unit a given hook call is
+-- currently processing. Every hook below that calls get_owner_camera also
+-- runs for OTHER units sharing the same extension/action (bots, and in
+-- multiplayer other human peers too), which don't have a real
+-- get_owner_camera-compatible viewport - PlayerBot.viewport_name is just
+-- its profile/career name, not a registered ScriptWorld viewport, so
+-- looking one up crashes. See README.md ("Crash when a bot's unit runs a
+-- get_owner_camera hook") for the crash this was found from.
+mod.is_local_player_unit = function (self, unit)
+	local local_player = Managers.player:local_player()
+
+	return local_player ~= nil and local_player.player_unit == unit
+end
+
 -- Temporarily extends the shared vanilla INTERACT_RAY_DISTANCE global
 -- (2.5m by default - a real bare global, not a table field, also read by
 -- bot AI positioning in player_bot_base.lua, so NOT safe to change
@@ -397,7 +412,7 @@ end)
 -- through, restore it after. See README.md ("Turn getting permanently
 -- baked into aim") for the rapid-fire-weapon bug this replaced.
 mod:hook(PlayerUnitFirstPerson, "apply_recoil", function (func, self, factor)
-	if not mod.third_person_active then
+	if not mod.third_person_active or not mod:is_local_player_unit(self.unit) then
 		return func(self, factor)
 	end
 
@@ -453,7 +468,7 @@ end)
 -- regardless of perspective - fire from the camera instead so the shot
 -- matches the crosshair. See README.md ("Aiming origin").
 mod:hook(PlayerUnitFirstPerson, "get_projectile_start_position_rotation", function (func, self)
-	if not mod.third_person_active then
+	if not mod.third_person_active or not mod:is_local_player_unit(self.unit) then
 		return func(self)
 	end
 
@@ -479,7 +494,7 @@ end)
 -- fallback) already uses first_person_extension:camera() - the real
 -- rendered camera - so it needs no fix. See README.md ("Tag/ping raycast").
 mod:hook(ContextAwarePingExtension, "_check_raycast", function (func, self, unit)
-	if not mod.third_person_active then
+	if not mod.third_person_active or not mod:is_local_player_unit(unit) then
 		return func(self, unit)
 	end
 
@@ -525,7 +540,7 @@ end)
 -- User-reported: "it should raycast [from the camera], the distance needs
 -- to be longer, since the camera is further away."
 mod:hook(GenericUnitInteractorExtension, "update", function (func, self, unit, input, dt, context, t)
-	if not mod.third_person_active then
+	if not mod.third_person_active or not mod:is_local_player_unit(unit) then
 		return func(self, unit, input, dt, context, t)
 	end
 
@@ -581,7 +596,7 @@ end)
 -- README.md ("Flamethrower") for the full multi-round history (render
 -- timing, a transient-object crash, and targeting the wrong bone).
 mod:hook(ActionFlamethrower, "client_owner_post_update", function (func, self, dt, t, world, can_damage)
-	if not mod.third_person_active then
+	if not mod.third_person_active or not mod:is_local_player_unit(self.owner_unit) then
 		return func(self, dt, t, world, can_damage)
 	end
 
@@ -660,7 +675,7 @@ end)
 -- poke-and-restore as the flamethrower damage cone. See README.md
 -- ("ActionChargedProjectile").
 mod:hook(ActionChargedProjectile, "_shoot", function (func, self, t)
-	if not mod.third_person_active then
+	if not mod.third_person_active or not mod:is_local_player_unit(self.owner_unit) then
 		return func(self, t)
 	end
 

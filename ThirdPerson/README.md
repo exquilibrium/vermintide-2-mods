@@ -720,6 +720,43 @@ hooking `_shoot` itself covers both call sites in one place.
 User confirmed (`staff_death.lua`'s custom-origin approximation included)
 this is fine as-is — no further work planned here.
 
+## Crash when a bot's unit runs a get_owner_camera hook
+
+User report: toggling third person on while playing Ubersreik 5 (5 bots)
+crashed immediately with `Viewport "bright_wizard" doesn't exist`, from
+`get_owner_camera` inside the `GenericUnitInteractorExtension.update` hook
+(item pickup / interaction raycast - see that section above).
+
+Root cause: every hook that calls `mod.get_owner_camera` was guarded only
+by `mod.third_person_active` - a single flag meaning "the local human
+player has third person on," not "this specific unit is the local human
+player's unit." `GenericUnitInteractorExtension.update` runs every frame
+for every unit with the extension, bots included, so the very next frame
+after toggling on, the hook ran for a bot and called `get_owner_camera` on
+the bot's unit. Confirmed via vanilla's own
+`scripts/managers/player/player_bot.lua:27` that a `PlayerBot`'s
+`viewport_name` is just its profile/career name (`"bright_wizard"` here),
+never a real registered `ScriptWorld` viewport - bots don't render their
+own screen. `apply_recoil`, `get_projectile_start_position_rotation`,
+`ContextAwarePingExtension._check_raycast`, `ActionFlamethrower.client_owner_post_update`,
+and `ActionChargedProjectile._shoot` all had the exact same gap; the
+interactor-update one was just first to crash since it's the only one that
+runs unconditionally every frame rather than only when a bot happens to
+fire a specific weapon.
+
+Fixed by adding `mod.is_local_player_unit(self, unit)` (compares against
+`Managers.player:local_player().player_unit`) and requiring it alongside
+`mod.third_person_active` in all six hooks that call `get_owner_camera` -
+any unit that isn't the local human player's own now falls through to the
+original vanilla function untouched, exactly as if third person were off.
+**Deliberately not touched: `move_on_ground`** - it never calls
+`get_owner_camera`, so it has no crash risk from this bug; it still runs
+its poke-and-restore for any unit (bots included) whenever third person is
+active, which is an existing, separate, non-crashing quirk left out of
+scope here rather than proactively "fixed" alongside this crash. **Not yet
+confirmed working in-game by the user** - needs retesting with the same
+Ubersreik 5 + 5 bots setup that produced the original crash.
+
 ## Known gaps
 
 - **Melee** (`action_sweep.lua`, `action_shield_slam.lua`): deliberately
