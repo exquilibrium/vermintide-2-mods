@@ -328,6 +328,71 @@ reads the same global for its own "is this pickup within interact range"
 check (`is_valid_social_wheel_pickup and distance <= INTERACT_RAY_DISTANCE`)
 - same root cause, same fix, just a second call site.
 
+## Missing third-person reload animation (`GenericAmmoUserExtension.start_reload_animation` hook)
+
+User report: some third-person animations sometimes seemed to be missing,
+handgun reload specifically called out. Investigated (read-only, no code
+changes) before fixing - see the investigation summary two sessions back
+in this same conversation history for the full trace; short version below.
+
+**Root cause is vanilla, not this mod, and has nothing to do with
+`third_person_mode`.** `GenericAmmoUserExtension.start_reload_animation`
+(`generic_ammo_user_extension.lua:287-333`) resolves a reload event name
+and does exactly two things with it: plays it on
+`first_person_extension` (the hidden first-person arms rig, via
+`Unit.animation_event(first_person_unit, event)`), and sends an RPC
+(`rpc_anim_event`) so REMOTE peers play it on THEIR OWN copy of
+`owner_unit`. It never calls `Unit.animation_event` on `owner_unit`
+locally. Remote teammates already see your reload correctly (that's what
+the RPC is for) - this is strictly a "the reloading player can't see their
+own third-person body reload" gap, present in vanilla regardless of
+whether this mod is even installed; faking `third_person_mode` reroutes
+the camera perfectly but can't fix a call that never reads that flag in
+the first place.
+
+**A different, older third-person mod (Grasmann-Mods, evaluated once
+early on as prior art - see the source-locations memory) patched this
+exact same gap once**, by hooking this same function and playing
+`self.reload_event` on `owner_unit` directly. **Re-verified against
+CURRENT decompiled source before porting it (the user specifically asked
+for this check, since Grasmann's code is old) and found it would have
+silently been a no-op if copied verbatim**: `self.reload_event` isn't a
+field on this extension in current source - it's `self._reload_event`,
+and the value actually played is resolved through several branches
+(no-ammo reload, last-round-in-magazine reload, a per-call override set
+by `self._override_reload_anim`) into a plain local variable inside
+`start_reload_animation`, never exposed on `self` at all. This is exactly
+the kind of drift the user was right to worry about verifying.
+
+**Fix**: the hook reproduces vanilla's own resolution logic (lines 298-313
+of `generic_ammo_user_extension.lua`) from a snapshot of the same `self`
+fields, computed BEFORE calling through to the original function (not
+from a `hook_safe` running after it) - the original mutates
+`self.reloaded_from_zero_ammo` and `self._override_reload_anim` as a side
+effect of running, clearing them, so a post-hook would find them already
+gone. After calling through (letting vanilla's own first-person/RPC
+behavior run completely unchanged), it calls
+`Unit.animation_event(self.owner_unit, reload_event)` once, gated on
+`mod.third_person_active` and `mod:is_local_player_unit(self.owner_unit)`
+(same convention as every other hook in this file) - the local player's
+own hidden third-person body was never a problem while in normal first
+person, so this is scoped to only the case that was actually broken.
+Matches `self.pickup_reload_event_1p`'s scope from the Grasmann fix too -
+that field is a separate, purely first-person ammo-pouch gesture with no
+third-person equivalent, left untouched exactly as the reference mod also
+left it.
+
+**Duplicating vanilla's branching logic here is a real, acknowledged
+tradeoff** - unlike this mod's other fixes (which read a value already
+computed by vanilla, or restore state vanilla already tracks), there's no
+way to read the already-resolved reload event back out after the fact,
+so this is the one hook in the file that re-derives a piece of vanilla's
+internal decision-making instead of just observing it. **If a future game
+update changes how reload events are chosen, this needs re-verifying
+against source directly - do not assume this snapshot is still accurate
+just because it matches today.** **Not yet confirmed working in-game by
+the user.**
+
 ## Weapon zoom, entirely mod-owned (`set_zooming` / `switch_variable_zoom` hooks)
 
 Three earlier approaches to mirroring vanilla's own zoom-tier system in

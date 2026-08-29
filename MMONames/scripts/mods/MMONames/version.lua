@@ -4,8 +4,27 @@ local WORKSHOP_ITEM_ID = "3790247727"
 
 -- Unix timestamp (UTC) + 1000s (buffer)
 -- Timestamp below serves as marker for "_Version Mod.bat"
--- 2026-08-29 20:06 UTC
-local OUR_VERSION_TIMESTAMP = 1788033963
+-- 2026-08-30 00:08 UTC
+local OUR_VERSION_TIMESTAMP = 1788048518
+
+-- Shown in the mod options menu as the "last_build_group" widget's header
+-- (see MMONames_data.lua - that widget has no sub_widgets, so this header
+-- is all it displays). Local time, not UTC, since this is player-facing and
+-- doesn't depend on the Steam check below succeeding.
+mod.last_build_string = os.date("%Y-%m-%d %H:%M", OUR_VERSION_TIMESTAMP)
+
+-- Intercepts the "last_build_group" option header to splice in
+-- mod.last_build_string above, falling through to the normal localization
+-- for every other key.
+local original_localize = mod.localize
+
+mod.localize = function (self, key, ...)
+	if key == "last_build_group" then
+		return original_localize(self, key, mod.last_build_string)
+	end
+
+	return original_localize(self, key, ...)
+end
 
 mod.up_to_date_callbacks = {}
 
@@ -32,10 +51,6 @@ local function mod_update_check_callback(success, code, headers, data, userdata)
 		end
 
 		mod.up_to_date = latest_timestamp <= OUR_VERSION_TIMESTAMP
-
-		local version_string = os.date("!%Y-%m-%d_%H:%M", OUR_VERSION_TIMESTAMP) .. "_UTC"
-
-		mod:echo(mod:localize("MUC_enabled", mod:get_readable_name(), version_string))
 
 		if not mod.up_to_date then
 			mod:echo(mod:localize("MUC_out_of_date", mod:get_readable_name()))

@@ -6,8 +6,8 @@ return {
 	MUC_fail = {
 		en = "%s: Failed to check the Steam Workshop for updates.",
 	},
-	MUC_enabled = {
-		en = "%s Enabled\nv%s",
+	last_build_group = {
+		en = "Last Build: %s",
 	},
 	MUC_out_of_date = {
 		en = "%s: A newer version is available on the Steam Workshop. Please update it.",

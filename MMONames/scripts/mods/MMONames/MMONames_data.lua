@@ -21,6 +21,11 @@ return {
 	options = {
 		widgets = {
 			{
+				setting_id = "last_build_group",
+				type = "group",
+				sub_widgets = {}
+			},
+			{
 				setting_id = "font_size_group",
 				type = "group",
 				sub_widgets = {

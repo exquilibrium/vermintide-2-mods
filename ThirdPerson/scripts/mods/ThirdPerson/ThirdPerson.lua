@@ -565,6 +565,61 @@ mod:hook(GenericUnitInteractorExtension, "update", function (func, self, unit, i
 	return result
 end)
 
+-- Reload animation never plays on the visible third-person body for the
+-- reloading player themselves. Vanilla's GenericAmmoUserExtension.
+-- start_reload_animation only ever does two things with the resolved
+-- reload event: play it on first_person_extension (the hidden FP arms rig)
+-- and RPC it to REMOTE peers, who then play it on THEIR OWN copy of
+-- owner_unit - it never calls Unit.animation_event on owner_unit locally.
+-- Remote teammates already see your reload correctly; this is purely a
+-- "can't see my own reload" gap, unrelated to third_person_mode (vanilla
+-- never reads that flag here at all - confirmed by reading
+-- generic_ammo_user_extension.lua directly, not assumed).
+--
+-- A different, older third-person mod (Grasmann-Mods) patched this same
+-- gap once by hooking this function and playing self.reload_event on
+-- owner_unit directly - but re-checking against CURRENT decompiled source
+-- (generic_ammo_user_extension.lua:287-333) found that field doesn't exist
+-- (it's self._reload_event), and the actual event ultimately played is
+-- resolved through several branches (no-ammo reload, last-round reload,
+-- a per-call override) into a plain local variable never exposed on self -
+-- porting that mod's exact hook verbatim would have silently done nothing.
+-- The branch logic below is a snapshot of vanilla's own resolution,
+-- reproduced here since there's no way to read the already-resolved value
+-- back out otherwise; if a future game update changes how reload events
+-- are chosen, this needs re-verifying against source, not assumed correct
+-- from this comment. Computed BEFORE calling through (not from a
+-- hook_safe run after) because the original clears
+-- self.reloaded_from_zero_ammo/self._override_reload_anim as a side effect
+-- of running - by the time a post-hook could read them they'd already be
+-- gone. See README.md ("Missing third-person reload animation").
+mod:hook(GenericAmmoUserExtension, "start_reload_animation", function (func, self, reload_time)
+	if not mod.third_person_active or not self.first_person_extension or not mod:is_local_player_unit(self.owner_unit) then
+		return func(self, reload_time)
+	end
+
+	local reload_event = self._reload_event
+	local num_missing = self._ammo_per_clip - self._current_ammo
+
+	if self.reloaded_from_zero_ammo then
+		if self._no_ammo_reload_event then
+			reload_event = self._no_ammo_reload_event
+		end
+	elseif num_missing == 1 or self._available_ammo == 1 then
+		reload_event = self._last_reload_event
+	end
+
+	reload_event = self._override_reload_anim or reload_event
+
+	local result = func(self, reload_time)
+
+	if reload_event then
+		Unit.animation_event(self.owner_unit, reload_event)
+	end
+
+	return result
+end)
+
 -- Beam Staff-specific compatibility fix. TourneyBalance (see
 -- Tourney-Balance-Open-Beta/scripts/mods/TourneyBalance/changes/weapon_changes/ranged/bw_beam.lua)
 -- replaces ActionBeam.client_owner_post_update entirely via its own

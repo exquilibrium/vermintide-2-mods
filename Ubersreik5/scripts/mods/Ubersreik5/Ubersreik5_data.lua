@@ -7,6 +7,11 @@ return {
 	options = {
 		widgets = {
 			{
+				type = "group",
+				setting_id = "last_build_group",
+				sub_widgets = {},
+			},
+			{
 				type = "numeric",
 				setting_id = "extend",
 				notify_mod = true,

@@ -70,8 +70,8 @@ mod.pos_y = -35
 mod.create_skins_dropdown = function(item_type, window_size)
 	mod:pcall(function()
 		local all_skins = pl.List(mod.get_skins(item_type))
-		mod.skin_names = tablex.pairmap(function(_, skin) return skin, Localize(WeaponSkins.skins[skin].display_name) end, all_skins)
-		mod.sorted_skin_names = all_skins:map(function(skin) return Localize(WeaponSkins.skins[skin].display_name) end)
+		mod.skin_names = tablex.pairmap(function(_, skin) return skin, mod.get_skin_display_name(item_type, skin) end, all_skins)
+		mod.sorted_skin_names = all_skins:map(function(skin) return mod.get_skin_display_name(item_type, skin) end)
 
 		-- it used to be each skin had an unique localized name, but not anymore
 		-- so we have to do something about duplicates
@@ -231,8 +231,34 @@ mod.create_traits_dropdown = function(item_type, window_size)
 	end)
 end
 
+-- Item types whose "skins" (see mod.get_skins/mod.get_skin_display_name below) are actually
+-- separate ItemMasterList keys sharing this item_type, rather than a WeaponSkins skin_combination_table.
+mod.accessory_item_types = pl.List{"necklace", "ring", "trinket"}
+
 mod.get_skins = function(item_type)
 	local current_career_names = mod.current_careers:map(function(career) return career.name end)
+
+	if mod.accessory_item_types:contains(item_type) then
+		-- Necklace/ring/trinket don't share one key with a swappable skin like weapons do --
+		-- ItemMasterList has a genuinely separate entry per cosmetic variant (e.g. "ring",
+		-- "ring_02", ..., "ring_10"), all sharing item_type == item_type, so the "skins" here
+		-- are just those keys themselves.
+		local variant_keys = pl.List()
+		for item_key, item in pairs( ItemMasterList ) do
+			if item.item_type == item_type
+			and item.template
+			and item.can_wield
+			and string.sub(tostring(item_key), 1, 2) ~= "vs" -- exclude versus-mode counterparts (GiveWeaponFix)
+			and pl.List(item.can_wield)
+				:map(function(career_name) return current_career_names:contains(career_name) end)
+				:reduce('or')
+			then
+				variant_keys:append(item_key)
+			end
+		end
+		return pl.Map.keys(pl.Set(variant_keys))
+	end
+
 	for _, item in pairs( ItemMasterList ) do
 		if item.item_type == item_type
 		and item.template
@@ -241,17 +267,24 @@ mod.get_skins = function(item_type)
 			:map(function(career_name) return current_career_names:contains(career_name) end)
 			:reduce('or')
 		then
-			if item.skin_combination_table or pl.List{"necklace", "ring", "trinket"}:contains(item_type) then
-				if item.skin_combination_table then
-					local all_skins = pl.List()
-					tablex.foreach(WeaponSkins.skin_combinations[item.skin_combination_table], function(value)
-						all_skins:extend(pl.List(value))
-					end)
-					return pl.Map.keys(pl.Set(all_skins))
-				end
+			if item.skin_combination_table then
+				local all_skins = pl.List()
+				tablex.foreach(WeaponSkins.skin_combinations[item.skin_combination_table], function(value)
+					all_skins:extend(pl.List(value))
+				end)
+				return pl.Map.keys(pl.Set(all_skins))
 			end
 		end
 	end
+end
+
+-- Localized display name for a "skin" option, whether it's a real WeaponSkins skin key or (for
+-- necklace/ring/trinket) an ItemMasterList key standing in for one -- see mod.get_skins above.
+mod.get_skin_display_name = function(item_type, skin_key)
+	if mod.accessory_item_types:contains(item_type) then
+		return Localize(ItemMasterList[skin_key].display_name)
+	end
+	return Localize(WeaponSkins.skins[skin_key].display_name)
 end
 
 -- Finds a representative ItemMasterList entry for an item_type, the same way create_weapon
@@ -343,6 +376,7 @@ mod.create_weapon = function(item_type, give_random_skin)
 		mod.current_careers = pl.List(SPProfiles[profile_index].careers)
 	end
 	local current_career_names = mod.current_careers:map(function(career) return career.name end)
+	local is_accessory = mod.accessory_item_types:contains(item_type)
 	for item_key, item in pairs( ItemMasterList ) do
 		if item.item_type == item_type
 		and item.template
@@ -352,12 +386,26 @@ mod.create_weapon = function(item_type, give_random_skin)
 			:map(function(career_name) return current_career_names:contains(career_name) end)
 			:reduce('or')
 		then
-			if item.skin_combination_table or pl.List{"necklace", "ring", "trinket"}:contains(item_type) then
+			if item.skin_combination_table or is_accessory then
 				local skin
-				if item.skin_combination_table and mod.skin_names then
+
+				-- For necklace/ring/trinket, the dropdown selection picks a specific
+				-- ItemMasterList key directly (see mod.get_skins) instead of a WeaponSkins skin
+				-- key, since that's what a "skin" actually is for these item types. Default to
+				-- the plain (non-numbered) key, which is always a valid entry for these types.
+				if is_accessory then
+					item_key = item_type
+					if mod.skin_names then
+						item_key = mod.skin_names[mod.sorted_skin_names[mod.skins_dropdown.index]] or item_type
+					end
+					if give_random_skin then
+						local variants = mod.get_skins(item_type)
+						item_key = variants[math.random(#variants)]
+					end
+				elseif item.skin_combination_table and mod.skin_names then
 					skin = mod.skin_names[mod.sorted_skin_names[mod.skins_dropdown.index]]
 				end
-				if give_random_skin then
+				if give_random_skin and not is_accessory then
 					local skins = mod.get_skins(item_type)
 					skin = skins[math.random(#skins)]
 				end
