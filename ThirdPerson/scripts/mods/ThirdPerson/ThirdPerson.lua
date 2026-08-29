@@ -1,7 +1,5 @@
 local mod = get_mod("ThirdPerson")
 
-mod:dofile("scripts/mods/ThirdPerson/version")
-
 -- Toggles a persistent third-person camera with configurable position and
 -- "turn" (look around without changing where you actually aim) offsets.
 -- See README.md at the mod root for the full design log: why each fix
@@ -757,3 +755,6 @@ end)
 mod.on_disabled = function ()
 	mod:set_third_person_active(false)
 end
+
+mod:echo("Third Person v1.0 Enabled")
+mod:dofile("scripts/mods/ThirdPerson/version")
