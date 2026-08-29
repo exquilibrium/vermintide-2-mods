@@ -1,4 +1,5 @@
 local mod = get_mod("Ubersreik5")
+mod:dofile("scripts/mods/"..mod:get_name().."/version")
 
 -- Party size for adventure mode. Must be set before the settings overrides
 -- below run (mod-load time, not inside a hook). See README.md.

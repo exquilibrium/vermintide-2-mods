@@ -1,4 +1,5 @@
 local mod = get_mod("GiveWeaponPlus")
+mod:dofile("scripts/mods/"..mod:get_name().."/version")
 
 local pl = require'pl.import_into'()
 local tablex = require'pl.tablex'

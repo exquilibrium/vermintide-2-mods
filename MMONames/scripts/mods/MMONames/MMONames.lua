@@ -1,4 +1,6 @@
 local mod = get_mod("MMONames")
+mod:dofile("scripts/mods/"..mod:get_name().."/version")
+
 mod.player_colors = {}
 
 mod:dofile("scripts/mods/MMONames/ColorPicker")
@@ -328,6 +330,3 @@ mod:hook_safe(IngameUI, "post_update", function (self, _, t)
 		end
 	end
 end)
-
--- Version
-mod:dofile("scripts/mods/MMONames/version")

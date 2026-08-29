@@ -1,11 +1,11 @@
-local mod = get_mod("ThirdPerson")
+local mod = get_mod("MMONames")
 
 local WORKSHOP_ITEM_ID = "3790247727"
 
 -- Unix timestamp (UTC) + 1000s (buffer)
 -- Timestamp below serves as marker for "_Version Mod.bat"
--- 2026-08-29 19:34 UTC
-local OUR_VERSION_TIMESTAMP = 1788032042
+-- 2026-08-29 19:58 UTC
+local OUR_VERSION_TIMESTAMP = 1788033539
 
 mod.up_to_date_callbacks = {}
 
@@ -32,6 +32,10 @@ local function mod_update_check_callback(success, code, headers, data, userdata)
 		end
 
 		mod.up_to_date = latest_timestamp <= OUR_VERSION_TIMESTAMP
+
+		local version_string = os.date("!%Y-%m-%d_%H:%M", OUR_VERSION_TIMESTAMP) .. "_UTC"
+
+		mod:echo(mod:localize("MUC_enabled", mod:get_readable_name(), version_string))
 
 		if not mod.up_to_date then
 			mod:echo(mod:localize("MUC_out_of_date", mod:get_readable_name()))
