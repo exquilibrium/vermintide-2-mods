@@ -1,5 +1,7 @@
 local mod = get_mod("ThirdPerson")
 
+mod:dofile("scripts/mods/ThirdPerson/version")
+
 -- Toggles a persistent third-person camera with configurable position and
 -- "turn" (look around without changing where you actually aim) offsets.
 -- See README.md at the mod root for the full design log: why each fix
@@ -99,9 +101,11 @@ mod.get_smoothed_fov_radians = function (self)
 end
 
 mod.get_camera_yaw_radians = function (self)
+	local side = self:get("camera_shoulder_side")
+	local sign = (side == "left" and -1) or (side == "right" and 1) or 0
 	local degrees_to_radians = math.pi / 180
 
-	return self:get("camera_turn_horizontal") * degrees_to_radians
+	return sign * self:get("camera_turn_horizontal") * degrees_to_radians
 end
 
 mod.get_camera_pitch_radians = function (self)

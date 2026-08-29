@@ -2,6 +2,13 @@ return {
 	mod_description = {
 		en = "Play Vermintide 2 in third person. Bind a key to switch between first and third person view.",
 	},
+
+	MUC_fail = {
+		en = "%s: Failed to check the Steam Workshop for updates.",
+	},
+	MUC_out_of_date = {
+		en = "%s: A newer version is available on the Steam Workshop. Please update it.",
+	},
 	toggle_third_person_keybind = {
 		en = "Toggle third person",
 	},
@@ -57,7 +64,7 @@ return {
 		en = "Yaw Offset",
 	},
 	camera_turn_horizontal_tooltip = {
-		en = "Rotates the camera's view left/right, independent of the character's facing direction."
+		en = "Rotates the camera's view left/right."
 			.."\nThis only changes which way the camera looks, not where it sits.",
 	},
 
