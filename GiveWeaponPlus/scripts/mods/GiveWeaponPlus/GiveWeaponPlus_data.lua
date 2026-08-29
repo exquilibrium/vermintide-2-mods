@@ -7,7 +7,7 @@ mod.SETTING_NAMES = {
 }
 
 local mod_data = {
-	name = "Give Weapon Plus",
+	name = "GiveWeaponPlus",
 	description = mod:localize("mod_description"),
 	is_togglable = false, -- must always run to load/equip saved items on startup
 }

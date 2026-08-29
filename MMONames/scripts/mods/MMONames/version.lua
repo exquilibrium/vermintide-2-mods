@@ -4,8 +4,8 @@ local WORKSHOP_ITEM_ID = "3790247727"
 
 -- Unix timestamp (UTC) + 1000s (buffer)
 -- Timestamp below serves as marker for "_Version Mod.bat"
--- 2026-08-29 19:58 UTC
-local OUR_VERSION_TIMESTAMP = 1788033539
+-- 2026-08-29 20:06 UTC
+local OUR_VERSION_TIMESTAMP = 1788033963
 
 mod.up_to_date_callbacks = {}
 
