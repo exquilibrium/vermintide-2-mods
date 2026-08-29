@@ -328,3 +328,6 @@ mod:hook_safe(IngameUI, "post_update", function (self, _, t)
 		end
 	end
 end)
+
+-- Version
+mod:dofile("scripts/mods/MMONames/version")

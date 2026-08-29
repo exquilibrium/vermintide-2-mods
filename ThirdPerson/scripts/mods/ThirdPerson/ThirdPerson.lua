@@ -759,5 +759,6 @@ mod.on_disabled = function ()
 	mod:set_third_person_active(false)
 end
 
+-- Version
 mod:echo("Third Person v1.0 Enabled")
 mod:dofile("scripts/mods/ThirdPerson/version")
