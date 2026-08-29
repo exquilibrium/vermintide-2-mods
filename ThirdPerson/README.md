@@ -77,16 +77,30 @@ guess at terminology - confirmed by reading vanilla's own
 `status_extension:is_ready_for_assisted_respawn()` - the same check used
 here. Combined with `is_dead()` for the fully-dead/ghost-mode case.
 
+**Extended (user-supplied) to five more status states**: knocked down,
+pounced down, grabbed by a Pack Master, ledge hanging, and hanging from a
+Butcher's hook - the same five `status_system` checks vanilla's own revive
+`can_interact` uses (`scripts/unit_extensions/generic/interactions.lua`) to
+decide whether a downed teammate can currently be picked up. Each of these
+is a state where vanilla itself takes over the character's
+animation/camera handling, so toggling third person mid-state risks the
+same kind of conflict the dead/waiting-for-rescue block already exists to
+avoid - blocked here whenever ANY of the five is true, unlike the revive
+check's combined AND/NOT logic (which answers a different question: can
+this specific teammate be revived right now, not "is this unit in a
+vanilla-owned state").
+
 The check lives in `toggle_third_person_pressed` itself (the keybind
 handler), not in `mod.set_third_person_active` - that function needs to
 stay unconditionally reliable for the cleanup/reapply paths that call it
 programmatically (`mod.on_disabled`, and indirectly the level-start reapply
 hook via `apply_third_person_to_unit`), which should never be blocked
 regardless of the player's status. Blocks the toggle **uniformly in both
-directions** (won't turn on OR off while dead/waiting for rescue) rather
+directions** (won't turn on OR off while in any of these states) rather
 than only blocking activation - simplest reading of "switching... should
-be blocked," and avoids the asymmetry of a player who died while already
-in third person suddenly being unable to turn it back off.
+be blocked," and avoids the asymmetry of a player who entered one of these
+states while already in third person suddenly being unable to turn it back
+off.
 
 ## Shoulder-side toggle keybind (`toggle_shoulder_side_keybind`, `toggle_shoulder_side_pressed`)
 

@@ -239,20 +239,23 @@ mod.set_third_person_active = function (self, active)
 	end
 end
 
--- Blocks the toggle keybind specifically (not mod.set_third_person_active
--- itself, which stays unconditionally reliable for cleanup/reapply paths
--- like mod.on_disabled and the level-start reapply hook) while the player
--- is dead or waiting for rescue - confirmed via vanilla's own
--- "wait_for_rescue_ui.lua" that "waiting for rescue" is exactly
--- is_ready_for_assisted_respawn(), the same state its "waiting_to_be_rescued"
--- HUD text is gated on. See README.md ("Blocking the toggle while
--- dead/waiting for rescue").
+-- Blocks the toggle third person keybind
+local function is_in_toggle_blocked_state(status_extension)
+	return status_extension:is_dead()
+		or status_extension:is_ready_for_assisted_respawn()
+		or status_extension:is_knocked_down()
+		or status_extension:is_pounced_down()
+		or status_extension:is_grabbed_by_pack_master()
+		or status_extension:get_is_ledge_hanging()
+		or status_extension:is_hanging_from_hook()
+end
+
 mod.toggle_third_person_pressed = function ()
 	local player = Managers.player and Managers.player:local_player()
 	local unit = player and player.player_unit
 	local status_extension = unit and ScriptUnit.has_extension(unit, "status_system")
 
-	if status_extension and (status_extension:is_dead() or status_extension:is_ready_for_assisted_respawn()) then
+	if status_extension and is_in_toggle_blocked_state(status_extension) then
 		return
 	end
 

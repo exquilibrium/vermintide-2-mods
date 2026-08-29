@@ -2,8 +2,10 @@ local mod = get_mod("ThirdPerson")
 
 local WORKSHOP_ITEM_ID = "3790651878"
 
--- Unix timestamp (UTC) + 1000s (buffer) from calling "_Version Mod.bat"
-local OUR_VERSION_TIMESTAMP = 1787966895
+-- Unix timestamp (UTC) + 1000s (buffer)
+-- Timestamp below serves as marker for "_Version Mod.bat"
+-- 2026-08-29 02:24 UTC
+local OUR_VERSION_TIMESTAMP = 1787970274
 
 mod.up_to_date_callbacks = {}
 

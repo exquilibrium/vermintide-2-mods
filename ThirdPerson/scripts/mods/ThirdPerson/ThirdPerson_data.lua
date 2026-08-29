@@ -49,7 +49,7 @@ mod_data.options = {
 					tooltip = "camera_x_position_tooltip",
 					default_value = 0.75,
 					decimals_number = 2,
-					range = {-3, 3},
+					range = {-10, 10},
 				},
 				{
 					setting_id = "camera_y_position",
@@ -57,7 +57,7 @@ mod_data.options = {
 					tooltip = "camera_y_position_tooltip",
 					default_value = 0.5,
 					decimals_number = 2,
-					range = {-3, 3},
+					range = {-10, 10},
 				},
 				{
 					setting_id = "camera_turn_horizontal",
@@ -65,7 +65,7 @@ mod_data.options = {
 					tooltip = "camera_turn_horizontal_tooltip",
 					default_value = 12,
 					decimals_number = 2,
-					range = {-45, 45},
+					range = {-90, 90},
 				},
 				{
 					setting_id = "camera_turn_vertical",
@@ -73,7 +73,7 @@ mod_data.options = {
 					tooltip = "camera_turn_vertical_tooltip",
 					default_value = -7,
 					decimals_number = 2,
-					range = {-45, 45},
+					range = {-90, 90},
 				},
 				{
 					setting_id = "camera_distance",
@@ -81,7 +81,7 @@ mod_data.options = {
 					tooltip = "camera_distance_tooltip",
 					default_value = 0.65,
 					decimals_number = 2,
-					range = {-3, 3},
+					range = {-10, 10},
 				},
 			},
 		},
