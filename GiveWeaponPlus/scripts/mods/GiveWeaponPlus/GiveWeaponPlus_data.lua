@@ -18,9 +18,9 @@ local mod_data = {
 mod_data.options = {
 	widgets = {
 		{
-			setting_id = "last_build_group",
-			type = "group",
-			sub_widgets = {},
+			setting_id = "last_build",
+			type = "checkbox",
+			default_value = true,
 		},
 		{
 			setting_id = mod.SETTING_NAMES.REMOVE_CW_CONTENT,

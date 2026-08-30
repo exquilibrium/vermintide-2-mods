@@ -7,33 +7,26 @@ MAX_PLAYERS = 5
 
 -- Removed MorePlayers 2 check
 
--- Reset the mod's own scoreboard-tracking state on (re)entering the inn or
--- an adventure mission. See README.md.
+-- Resets PlayerScores + vanilla's own native stats on every (re)entry into
+-- StateIngame - covers win/loss/restart/next-mission in one hook, since all
+-- of them exit and re-enter StateIngame. See README.md.
 mod:hook_safe(StateIngame, "on_enter", function (self)
 	local game_mode_key = Managers.state.game_mode:game_mode_key()
 
-	if PlayerScores ~= nil and (game_mode_key == "inn" or game_mode_key == "inn_deus" or game_mode_key == "adventure") then
-		PlayerScores = {}
-	end
-end)
+	if game_mode_key == "inn" or game_mode_key == "inn_deus" or game_mode_key == "adventure" then
+		if PlayerScores ~= nil then
+			PlayerScores = {}
+		end
 
--- Every restart path (vote/esc-menu/checkpoint retry, auto-reload on a party
--- wipe) funnels through reload_level, unlike on_enter above. Also resets
--- vanilla's own native stats and the stale cached-scoreboard field a
--- reconnect catch-up clears for the same reason. See README.md.
-mod:hook_safe(LevelTransitionHandler, "reload_level", function (self, ...)
-	if PlayerScores ~= nil then
-		PlayerScores = {}
-	end
+		local statistics_db = Managers.venture and Managers.venture.statistics
 
-	local statistics_db = Managers.venture and Managers.venture.statistics
+		if statistics_db then
+			statistics_db:reset_session_stats()
+		end
 
-	if statistics_db then
-		statistics_db:reset_session_stats()
-	end
-
-	if Managers.mechanism then
-		Managers.mechanism.synced_players_session_score = nil
+		if Managers.mechanism then
+			Managers.mechanism.synced_players_session_score = nil
+		end
 	end
 end)
 

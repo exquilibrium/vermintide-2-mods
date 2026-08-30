@@ -21,9 +21,9 @@ return {
 	options = {
 		widgets = {
 			{
-				setting_id = "last_build_group",
-				type = "group",
-				sub_widgets = {}
+				setting_id = "last_build",
+				type = "checkbox",
+				default_value = true
 			},
 			{
 				setting_id = "font_size_group",

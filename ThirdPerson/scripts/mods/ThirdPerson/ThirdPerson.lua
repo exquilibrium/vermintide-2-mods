@@ -278,6 +278,13 @@ mod.toggle_third_person_pressed = function ()
 	mod:set_third_person_active(not mod.third_person_active)
 end
 
+-- Chat command equivalent of the toggle keybind above, for players who'd
+-- rather bind it themselves via a chat macro/launch option or just prefer
+-- typing it.
+mod:command("thirdperson_toggle", "Toggle third person.", function ()
+	mod.toggle_third_person_pressed()
+end)
+
 -- Flips camera_shoulder_side between "left" and "right" - "center" is
 -- treated the same as "right" (i.e. pressed while centered goes to
 -- "right"), since a plain left/right toggle has no natural third state to

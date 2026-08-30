@@ -4,27 +4,17 @@ local WORKSHOP_ITEM_ID = "3790247727"
 
 -- Unix timestamp (UTC) + 1000s (buffer)
 -- Timestamp below serves as marker for "_Version Mod.bat"
--- 2026-08-30 00:08 UTC
-local OUR_VERSION_TIMESTAMP = 1788048518
+-- 2026-08-30 02:45 UTC
+local OUR_VERSION_TIMESTAMP = 1788057910
 
--- Shown in the mod options menu as the "last_build_group" widget's header
--- (see MMONames_data.lua - that widget has no sub_widgets, so this header
--- is all it displays). Local time, not UTC, since this is player-facing and
--- doesn't depend on the Steam check below succeeding.
-mod.last_build_string = os.date("%Y-%m-%d %H:%M", OUR_VERSION_TIMESTAMP)
-
--- Intercepts the "last_build_group" option header to splice in
--- mod.last_build_string above, falling through to the normal localization
--- for every other key.
-local original_localize = mod.localize
-
-mod.localize = function (self, key, ...)
-	if key == "last_build_group" then
-		return original_localize(self, key, mod.last_build_string)
-	end
-
-	return original_localize(self, key, ...)
-end
+-- The "last_build" checkbox's displayed label (see MMONames_data.lua - it's
+-- a no-op checkbox, not read anywhere, just a way to surface this as a label
+-- in the options list) comes straight from the "last_build" entry in
+-- MMONames_localization.lua - "_Version Mod.bat" stamps that entry's text
+-- at the same time it stamps OUR_VERSION_TIMESTAMP below. It's baked in as
+-- static text rather than computed here at runtime because the mod options
+-- menu reads widget labels directly from the localization table, not
+-- through mod:localize(), so a runtime override here has no effect on it.
 
 mod.up_to_date_callbacks = {}
 

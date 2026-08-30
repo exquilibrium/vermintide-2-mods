@@ -306,7 +306,7 @@ mod:network_register(CATCHUP_PACKAGE_ID, function (sender_peer_id, stats_id, dat
 		apply_native_catchup(statistics_db, stats_id, data.native)
 
 		-- Clear vanilla's cached scoreboard snapshot so it re-reads live.
-		-- Same reasoning as Ubersreik5.lua's reload_level hook; see README.md.
+		-- Same reasoning as Ubersreik5.lua's on_enter reset hook; see README.md.
 		if Managers.mechanism then
 			Managers.mechanism.synced_players_session_score = nil
 		end

@@ -7,9 +7,9 @@ return {
 	options = {
 		widgets = {
 			{
-				type = "group",
-				setting_id = "last_build_group",
-				sub_widgets = {},
+				type = "checkbox",
+				setting_id = "last_build",
+				default_value = true,
 			},
 			{
 				type = "numeric",
