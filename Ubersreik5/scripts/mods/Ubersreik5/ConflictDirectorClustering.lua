@@ -2,59 +2,87 @@ local mod = get_mod("Ubersreik5")
 
 -- AI Director player-position clustering, hardcoded to at most 4 players/
 -- bots in vanilla - extended to 5 as a full replace (not a wrapper), since
--- vanilla's own scratch-table reuse isn't reachable from a hook and has a
--- correctness bug anyway. See README.md.
+-- vanilla's own scratch tables aren't reachable from a hook. See README.md.
+
+-- Scratch tables reused across calls (mirrors vanilla's own scratch-reuse
+-- optimization), but cleared by capturing each table's live length from the
+-- *previous* call before wiping it - unlike vanilla's own fixed "for i = 1, 3"
+-- reset, this stays correct no matter how many positions a call has. See
+-- README.md.
+local cluster_positions_sizes = {}
+local cluster_positions_index_lookup = {}
+local cluster_positions_work_queue = {}
 
 mod:hook(ConflictUtils, "cluster_positions", function (func, positions, min_dist)
+	if #positions == 0 then
+		return {}, {}, {}
+	end
+
 	local clusters = {
 		positions[1],
 	}
-	local clusters_sizes = {
-		1,
-	}
-	local cluster_index_lookup = {
-		1,
-	}
+	local clusters_sizes = cluster_positions_sizes
+	local cluster_index_lookup = cluster_positions_index_lookup
+	local work_queue = cluster_positions_work_queue
 
-	min_dist = min_dist * min_dist
-
-	local work_queue = {}
-
-	for i = 2, #positions do
-		work_queue[i - 1] = i
+	for i = 1, #clusters_sizes do
+		clusters_sizes[i] = nil
 	end
 
-	local work_size = #work_queue
+	for i = 1, #cluster_index_lookup do
+		cluster_index_lookup[i] = nil
+	end
 
-	while work_size > 0 do
+	for i = 1, #work_queue do
+		work_queue[i] = nil
+	end
+
+	clusters_sizes[1] = 1
+	cluster_index_lookup[1] = 1
+
+	local min_dist_sq = min_dist * min_dist
+
+	for i = 2, #positions do
+		work_queue[#work_queue + 1] = i
+	end
+
+	while #work_queue > 0 do
 		local clustered = false
+		local work_size = #work_queue
 
-		for i = 1, #clusters do
-			for j = 1, work_size do
-				local index = work_queue[j]
-				local dist = Vector3.distance_squared(clusters[i], positions[index])
+		for cluster_idx = 1, #clusters do
+			local i = 1
 
-				if dist < min_dist then
-					work_queue[j] = work_queue[work_size]
+			while work_size >= i do
+				local pos_idx = work_queue[i]
+				local dist_sq = Vector3.distance_squared(clusters[cluster_idx], positions[pos_idx])
+
+				if dist_sq < min_dist_sq then
+					cluster_index_lookup[pos_idx] = cluster_idx
+					clusters_sizes[cluster_idx] = clusters_sizes[cluster_idx] + 1
+					work_queue[i] = work_queue[work_size]
+					work_queue[work_size] = nil
 					work_size = work_size - 1
-					cluster_index_lookup[index] = i
-					clusters_sizes[i] = clusters_sizes[i] + 1
 					clustered = true
-
-					break
+				else
+					i = i + 1
 				end
+			end
+
+			if clustered then
+				break
 			end
 		end
 
-		if not clustered then
-			local i = #clusters + 1
-			local index = work_queue[1]
+		if not clustered and #work_queue > 0 then
+			local new_cluster_idx = #clusters + 1
+			local pos_idx = work_queue[1]
 
-			clusters[i] = positions[index]
-			cluster_index_lookup[index] = i
-			clusters_sizes[i] = 1
-			work_queue[1] = work_queue[work_size]
-			work_size = work_size - 1
+			clusters[new_cluster_idx] = positions[pos_idx]
+			cluster_index_lookup[pos_idx] = new_cluster_idx
+			clusters_sizes[new_cluster_idx] = 1
+			work_queue[1] = work_queue[#work_queue]
+			work_queue[#work_queue] = nil
 		end
 	end
 
