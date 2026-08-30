@@ -156,7 +156,7 @@ mod:hook(UISceneGraph, "init_scenegraph", function (func, scenegraph_def, ...)
 		local panel_size = mod.scoreboard:player_score_size()
 		-- "top" alignment needs no extension()-size compensation, unlike
 		-- "center" would. See README.md.
-		local TOP_OFFSET = -220
+		local TOP_OFFSET = -250
 
 		scenegraph_def.scores_topics.horizontal_alignment = "center"
 		scenegraph_def.scores_topics.vertical_alignment = "top"

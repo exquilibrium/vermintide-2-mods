@@ -7,7 +7,7 @@ return {
 		en = "%s: Failed to check the Steam Workshop for updates.",
 	},
 	last_build = {
-		en = "Last Build: 2026-08-30 02:45 UTC",
+		en = "Last Build: 2026-08-30 03:13 UTC",
 	},
 	MUC_out_of_date = {
 		en = "%s: A newer version is available on the Steam Workshop. Please update it.",
