@@ -18,6 +18,10 @@ mod:hook_safe(StateIngame, "on_enter", function (self)
 			PlayerScores = {}
 		end
 
+		if mod.clear_native_stats_snapshot then
+			mod:clear_native_stats_snapshot()
+		end
+
 		local statistics_db = Managers.venture and Managers.venture.statistics
 
 		if statistics_db then

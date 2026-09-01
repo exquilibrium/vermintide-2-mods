@@ -272,6 +272,17 @@ end
 -- See README.md.
 local NativeStatsSnapshot = {}
 
+-- A restart/win/fail with clients connected produces the exact same
+-- unregister -> rejoin sequence as a genuine mid-mission reconnect (the
+-- level_session_id changes and clients rejoin the reloaded level), so a
+-- snapshot taken just before our own intentional reset would otherwise
+-- survive it and get resurrected by on_user_joined below once the client
+-- rejoins. Ubersreik5.lua's on_enter reset hook calls this to drop any
+-- snapshot that predates the reset.
+mod.clear_native_stats_snapshot = function (self)
+	table.clear(NativeStatsSnapshot)
+end
+
 mod:hook(StatisticsDatabase, "unregister", function (func, self, stats_id, ...)
 	local snapshot = {}
 

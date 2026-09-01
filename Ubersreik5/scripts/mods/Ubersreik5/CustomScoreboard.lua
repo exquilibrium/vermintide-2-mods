@@ -223,8 +223,13 @@ mod:hook(UISceneGraph, "init_scenegraph", function (func, scenegraph_def, ...)
 	end
 
 	-- Matchmaking overlay's party_slot_5 node - see MatchmakingPartySlot5.lua
-	-- and README.md.
+	-- and README.md. Slot 5 takes vanilla's old slot 4 spot (x=135), and
+	-- slots 1-4 get squeezed evenly between vanilla's old slot 1 (x=-135)
+	-- and that same spot, 67.5 apart, so all 5 are evenly spaced.
 	if scenegraph_def.party_slot_4 and scenegraph_def.party_slot_root and not scenegraph_def.party_slot_5 then
+		local PARTY_SLOT_Y = -52
+		local PARTY_SLOT_X_STEP = 67.5
+
 		scenegraph_def.party_slot_5 = {
 			vertical_alignment = "center",
 			horizontal_alignment = "center",
@@ -234,11 +239,18 @@ mod:hook(UISceneGraph, "init_scenegraph", function (func, scenegraph_def, ...)
 				70,
 			},
 			position = {
-				-135,
-				-175,
+				135,
+				PARTY_SLOT_Y,
 				1,
 			},
 		}
+
+		for i = 1, 4 do
+			local slot = scenegraph_def["party_slot_" .. i]
+
+			slot.position[1] = -135 + (i - 1) * PARTY_SLOT_X_STEP
+			slot.position[2] = PARTY_SLOT_Y
+		end
 	end
 
 	return func(scenegraph_def, ...)
