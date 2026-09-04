@@ -295,10 +295,19 @@ mod:hook(StatisticsDatabase, "unregister", function (func, self, stats_id, ...)
 	return func(self, stats_id, ...)
 end)
 
--- One network_send call per teammate, not one covering the whole party -
--- a single combined message silently delivers nothing (RPC size limit).
--- See README.md.
+-- One network_send call per STAT, not one per teammate covering all their
+-- stats in a single table - VMF caps a network_send string parameter at
+-- 500 characters (fails with "Failed to pack parameter 3, too many
+-- characters"), and the combined native+custom payload for one teammate
+-- can exceed that once a mission has run long enough to rack up values
+-- across ~30 native+custom stats. See README.md.
 local CATCHUP_PACKAGE_ID = "ubersreik5_catchup"
+
+local NATIVE_TOPIC_BY_NAME = {}
+
+for _, topic in ipairs(ScoreboardHelper.scoreboard_topic_stats) do
+	NATIVE_TOPIC_BY_NAME[topic.name] = topic
+end
 
 local function apply_native_catchup(statistics_db, stats_id, native)
 	for _, topic in ipairs(ScoreboardHelper.scoreboard_topic_stats) do
@@ -310,21 +319,34 @@ local function apply_native_catchup(statistics_db, stats_id, native)
 	end
 end
 
-mod:network_register(CATCHUP_PACKAGE_ID, function (sender_peer_id, stats_id, data)
-	local statistics_db = Managers.player:statistics_db()
+mod:network_register(CATCHUP_PACKAGE_ID, function (sender_peer_id, stats_id, kind, stat_name, value)
+	if kind == "native" then
+		local statistics_db = Managers.player:statistics_db()
+		local topic = NATIVE_TOPIC_BY_NAME[stat_name]
 
-	if statistics_db and data.native then
-		apply_native_catchup(statistics_db, stats_id, data.native)
+		if statistics_db and topic then
+			apply_native_stat_delta(statistics_db, stats_id, topic, value)
 
-		-- Clear vanilla's cached scoreboard snapshot so it re-reads live.
-		-- Same reasoning as Ubersreik5.lua's on_enter reset hook; see README.md.
-		if Managers.mechanism then
-			Managers.mechanism.synced_players_session_score = nil
+			-- Clear vanilla's cached scoreboard snapshot so it re-reads live.
+			-- Same reasoning as Ubersreik5.lua's on_enter reset hook; see README.md.
+			if Managers.mechanism then
+				Managers.mechanism.synced_players_session_score = nil
+			end
 		end
-	end
+	elseif kind == "custom" then
+		-- Merged onto whatever's already there rather than replacing the
+		-- whole table outright - by the time a catch-up like this can fire,
+		-- the receiver's own copy for this stats_id is fresh/nil anyway (see
+		-- README.md), so this is equivalent in practice and simpler to send
+		-- one stat at a time.
+		local scores = PlayerScores[stats_id]
 
-	if data.custom then
-		PlayerScores[stats_id] = data.custom
+		if not scores then
+			scores = {}
+			PlayerScores[stats_id] = scores
+		end
+
+		scores[stat_name] = value
 	end
 end)
 
@@ -359,10 +381,21 @@ mod.on_user_joined = function (player)
 				end
 			end
 
-			mod:network_send(CATCHUP_PACKAGE_ID, player.peer_id, stats_id, {
-				native = native,
-				custom = PlayerScores[stats_id],
-			})
+			for stat_name, value in pairs(native) do
+				if value ~= 0 then
+					mod:network_send(CATCHUP_PACKAGE_ID, player.peer_id, stats_id, "native", stat_name, value)
+				end
+			end
+
+			local custom = PlayerScores[stats_id]
+
+			if custom then
+				for stat_name, value in pairs(custom) do
+					if value ~= 0 then
+						mod:network_send(CATCHUP_PACKAGE_ID, player.peer_id, stats_id, "custom", stat_name, value)
+					end
+				end
+			end
 		end
 	end
 end

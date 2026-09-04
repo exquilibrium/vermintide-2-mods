@@ -1,0 +1,11 @@
+mod = [
+	"DPSTools"
+]
+
+package = [
+	"resource_packages/DPSTools/DPSTools"
+]
+
+lua = [
+	"scripts/mods/DPSTools/*"
+]
