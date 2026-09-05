@@ -1,8 +1,5 @@
 local mod = get_mod("DPSTools")
 
-mod.restriction_ratio = 0.15
-mod.max_restriction = 100
-
 mod.scoreTypeDefinitions = {
 	headshots = {
 		meter_type = "dps",
@@ -166,76 +163,6 @@ for _, meter in pairs(mod.meter_templates) do
 	meter.column_size = #meter.elements
 end
 
-mod.meter_option_template = {
-	elements = {
-		{
-			display_text = "Start",
-			on_pressed = function(meter, scoreController)
-				scoreController:start()
-			end
-		},
-		{
-			display_text = "End",
-			on_pressed = function(meter, scoreController)
-				scoreController:finish()
-			end
-		},
-		{
-			display_text = "Clear",
-			on_pressed = function(meter, scoreController)
-				scoreController:clear()
-			end,
-			next_column = true
-		},
-		{
-			display_text = "Default",
-			on_pressed = function(meter, scoreController)
-				mod.SaveDefaultSettings()
-				meter:refresh_size_and_position()
-			end,
-			next_column = true
-		},
-		{
-			display_text = "DPS",
-			on_pressed = function(meter, scoreController)
-				meter:set_mode("dps")
-				scoreController:set_mode("dps")
-			end
-		},
-		{
-			display_text = "HPS",
-			on_pressed = function(meter, scoreController)
-				meter:set_mode("hps")
-				scoreController:set_mode("hps")
-			end,
-			next_column = true
-		},
-		{
-			display_text = "Lock",
-			on_pressed = function(meter, scoreController)
-				meter:lock_input()
-			end
-		},
-		{
-			display_text = "Close",
-			on_pressed = function(meter, scoreController)
-				mod.close_meter_ui()
-			end,
-			next_column = true
-		},
-	},
-}
-
-local option_column_size = 0
-
-for _, option in ipairs(mod.meter_option_template.elements) do
-	if option.next_column then
-		option_column_size = option_column_size + 1
-	end
-end
-
-mod.meter_option_template.columns = option_column_size
-
 mod.shortened_career_lookup = {
 	dr_ranger = " RV",
 	dr_slayer = " SL",
@@ -310,7 +237,8 @@ mod.data = {
 				setting_id    = "meter_font_scale",
 				type          = "numeric",
 				default_value = 1,
-				range         = { 0, 10 },
+				range         = { 0, 2 },
+				decimals_number = 3,
 			},
 			{
 				setting_id      = "meter_keybind",

@@ -1,31 +1,26 @@
 local mod = get_mod("DPSTools")
-local Application = Application
 
-mod:dofile("scripts/mods/DPS Meter/ScoreController")
-mod:dofile("scripts/mods/DPS Meter/MeterImgui")
-mod:dofile("scripts/mods/DPS Meter/ScoreCollectors")
+mod:dofile("scripts/mods/DPSTools/ScoreController")
+mod:dofile("scripts/mods/DPSTools/MeterHud")
+mod:dofile("scripts/mods/DPSTools/ScoreCollectors")
 
-mod.cached_settings = {}
 mod.scoreController = ScoreController:new(mod)
-mod.meterImgui = MeterImgui:new(mod)
+mod.meterHud = MeterHud:new(mod)
 
-local mod_widgets = mod.data.options.widgets
-local cached_settings = mod.cached_settings
 local scoreController = mod.scoreController
-local meterImgui = mod.meterImgui
+local meterHud = mod.meterHud
 
 mod.update = function(dt)
     scoreController:update(dt)
-    meterImgui:update(dt)
 end
 
-mod.on_enabled = function()
-    for i = 1, #mod_widgets do
-        local widget = mod_widgets[i]
-        local setting_id = widget.setting_id
-        cached_settings[setting_id] = mod:get(setting_id)
+-- Draws alongside the game's own HUD (health bars, chat, etc.) using its ui_renderer,
+-- instead of a separate Imgui overlay window. See MeterHud.lua for why.
+mod:hook_safe(IngameUI, "post_update", function(self, dt, t)
+    if meterHud:is_visible() and self.ui_renderer then
+        meterHud:draw(self.ui_renderer)
     end
-end
+end)
 
 mod.on_disabled = function()
     scoreController:clear()
@@ -35,12 +30,6 @@ mod.on_unload = function()
     mod.on_disabled()
 end
 
-mod.on_setting_changed = function(setting_id)
-    cached_settings[setting_id] = mod:get(setting_id)
-
-    meterImgui:refresh_size_and_position()
-end
-
 mod.on_game_state_changed = function(status, state_name)
     if status == "enter" and state_name == "StateLoading" then
         scoreController:finish()
@@ -48,7 +37,7 @@ mod.on_game_state_changed = function(status, state_name)
 end
 
 mod.on_meter_keypressed = function()
-    if meterImgui:is_visible() then
+    if meterHud:is_visible() then
         mod.close_meter_ui()
     else
         mod.open_meter_ui()
@@ -56,32 +45,19 @@ mod.on_meter_keypressed = function()
 end
 
 mod.on_meter_reset_keypressed = function()
-    if cached_settings.meter_disable_reset_keybind then
+    if mod:get("meter_disable_reset_keybind") then
         return
     end
 
     mod.SaveDefaultSettings()
-    meterImgui:refresh_size_and_position()
 end
 
 mod.open_meter_ui = function()
-    if Application.user_setting("fullscreen") then
-        mod:echo("You can't use this mod for fullscreen.")
-        return
-    end
-
-    meterImgui:set_visible(true)
-    meterImgui:unlock_input()
+    meterHud:set_visible(true)
 end
 
 mod.close_meter_ui = function()
-    if Application.user_setting("fullscreen") then
-        mod:echo("You can't use this mod for fullscreen.")
-        return
-    end
-
-    meterImgui:set_visible(false)
-    meterImgui:lock_input()
+    meterHud:set_visible(false)
 end
 
 mod.SaveDefaultSettings = function ()
@@ -104,10 +80,37 @@ mod.SaveDefaultSettings = function ()
     mod:set("meter_font_scale", default_settings.meter_font_scale, true)
 end
 
-mod:command("dpsgui", " DPS Meter ImGui", function()
+mod:command("dpsgui", " Open the DPS Meter", function()
     mod.open_meter_ui()
 end)
 
-mod:command("forcedpsclose", " Force the ImGui to close", function()
+mod:command("forcedpsclose", " Force the DPS Meter to close", function()
     mod.close_meter_ui()
+end)
+
+mod:command("dpsstart", " Start the DPS Meter timer", function()
+    scoreController:start()
+end)
+
+mod:command("dpsend", " Stop the DPS Meter timer", function()
+    scoreController:finish()
+end)
+
+mod:command("dpsclear", " Clear the DPS Meter's recorded scores", function()
+    scoreController:clear()
+end)
+
+mod:command("dpsdefault", " Reset the DPS Meter's size/position/appearance to default", function()
+    mod.SaveDefaultSettings()
+end)
+
+mod:command("dpsmode", " Switch the DPS Meter's display mode. Usage: /dpsmode <dps|hps>", function(requested_mode)
+    if requested_mode ~= "dps" and requested_mode ~= "hps" then
+        mod:echo("Usage: /dpsmode <dps|hps>")
+
+        return
+    end
+
+    meterHud:set_mode(requested_mode)
+    scoreController:set_mode(requested_mode)
 end)

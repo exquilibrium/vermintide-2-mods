@@ -1,0 +1,11 @@
+mod = [
+	"GKQuestComplete"
+]
+
+package = [
+	"resource_packages/GKQuestComplete/GKQuestComplete"
+]
+
+lua = [
+	"scripts/mods/GKQuestComplete/*"
+]

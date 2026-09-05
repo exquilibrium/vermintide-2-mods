@@ -46,7 +46,7 @@
 	 · Saves items created with the weapon creator and recreates them when you launch the game.
 	   Auto-save can be toggled off in the mod settings, in which case created items can be saved with a chat command.
 	 · Deletes saved items by either hovering the item and pressing the assigned keybind, or by using chat commands.
-	 · (Currently broken) Re-equips previously equipped modded items and cosmetics from last session when you launch the game.
+	 · Re-equips previously equipped modded items and cosmetics from last session when you launch the game, for any slot that's still at its blacksmith default.
 	 · Undo the last item deletion, bringing the item back. This can be repeated for as many times as you've deleted items.
 
 
@@ -715,7 +715,6 @@ mod.load_items = function(self)
 end
 
 -- # Set items equipped on game start # --
--- This is currently not working
 mod.set_equipped_items_on_startup = function(self)
 	--[[
 		mod.last_equipped_items = {
@@ -727,6 +726,7 @@ mod.set_equipped_items_on_startup = function(self)
 		},
 	--]]
 	local backend_items = Managers.backend:get_interface("items")
+	local loadouts = backend_items._loadouts
 
 	-- Loop through all career names and lots
 	for career_name, slots in pairs(mod.last_equipped_items) do
@@ -737,10 +737,18 @@ mod.set_equipped_items_on_startup = function(self)
 			-- risks equipping a completely different item that happens to share the same ID.
 			if not mod:is_backend_id_from_mod(backend_id) then
 				-- skip silently, not an error -- just a leftover from an older mod version
-			elseif mod:verify_backend_id(backend_id) then
-				backend_items:set_loadout_item(backend_id, career_name, slot_name)
-			else
+			elseif not mod:verify_backend_id(backend_id) then
 				mod:echo("[SaveWeapon][ERROR] Previous session's equipped item ID is invalid (" .. career_name .. ": " .. backend_id .. ")")
+			else
+				-- Only auto-equip into a slot that's still at its blacksmith default (power level 5,
+				-- i.e. nothing meaningful equipped there) -- if the player has since equipped a real
+				-- item in this slot, respect that instead of silently overriding it.
+				local current_backend_id = loadouts[career_name] and loadouts[career_name][slot_name]
+				local current_item = current_backend_id and backend_items:get_item_from_id(current_backend_id)
+
+				if current_item and current_item.power_level == 5 then
+					backend_items:set_loadout_item(backend_id, career_name, slot_name)
+				end
 			end
 		end
 	end
@@ -772,6 +780,12 @@ mod:hook_safe(BackendManagerPlayFab, "_create_interfaces", function(...)
 				mod.last_equipped_items[career_name] = {}
 			end
 			mod.last_equipped_items[career_name][slot_name] = backend_id
+
+			mod:set("last_equipped_items", mod.last_equipped_items)
+		elseif mod.last_equipped_items[career_name] and mod.last_equipped_items[career_name][slot_name] then
+			-- Switching this slot to an official item -- forget the mod item that used to live here,
+			-- otherwise startup auto-equip would re-equip it and silently override this choice.
+			mod.last_equipped_items[career_name][slot_name] = nil
 
 			mod:set("last_equipped_items", mod.last_equipped_items)
 		end
