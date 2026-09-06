@@ -18,7 +18,7 @@ local FONT_MATERIAL = "materials/fonts/" .. FONT_NAME
 -- into the Fonts table in scripts/ui/ui_fonts.lua, which maps style aliases to
 -- {material, size, family} triples. "hell_shark" is the alias for the gw_body family.
 local FONT_HEIGHT_KEY = "hell_shark"
-local BASE_FONT_SIZE = 18
+local BASE_FONT_SIZE = 16
 local ROW_HEIGHT = 26
 local TEXT_COLOR = { 255, 255, 255, 255 }
 local SEPARATOR_COLOR = { 130, 255, 255, 255 }
@@ -30,6 +30,14 @@ local CELL_PADDING = 6
 local PANEL_CORNER_RADIUS = 8
 local BAR_CORNER_RADIUS = 3
 local BAR_PADDING = 3
+local TOOLBAR_BUTTON_COLOR = { 140, 60, 130, 220 }
+local TOOLBAR_BUTTON_HOVER_COLOR = { 190, 90, 160, 240 }
+local TOOLBAR_BUTTON_ACTIVE_COLOR = { 255, 60, 130, 220 }
+local TOOLBAR_BUTTON_CORNER_RADIUS = 4
+local TOOLBAR_BUTTON_PADDING_Y = 4
+local TOOLBAR_BUTTON_TEXT_PADDING_X = 8
+local TOOLBAR_BUTTON_GAP = 4
+local TOOLBAR_ROW_HEIGHT_SCALE = 1
 -- Insets the whole table (rows, separators, everything) within the background box,
 -- rather than padding individual elements against the box edge one at a time.
 local BOX_PADDING = 5
@@ -109,6 +117,42 @@ local function draw_row_separators(ui_renderer, content_x, content_w, row_y, row
     end
 end
 
+-- Toolbar buttons drawn left to right in the row above the header (see
+-- MeterHud.draw). These replace the old dpsstart/dpsend/dpsclear/dpsdefault/dpsmode
+-- text commands - every one of those actions now has an on-panel button instead.
+local TOOLBAR_ITEMS = {
+    { id = "start", label = "Start" },
+    { id = "end", label = "End" },
+    { id = "clear", label = "Clear" },
+    { separator = true },
+    { id = "default", label = "Default" },
+    { separator = true },
+    { id = "dps", label = "DPS" },
+    { id = "hps", label = "HPS" },
+    { separator = true },
+    { id = "pin", label = "Pin" },
+    { id = "close", label = "Close" },
+}
+
+-- Counted once here rather than every frame: how many of the small fixed
+-- (TOOLBAR_BUTTON_GAP) gaps sit between two buttons with no separator between
+-- them, and how many separator slots exist. See MeterHud.draw for how these feed
+-- into the separator gap width.
+local TOOLBAR_SEPARATOR_COUNT = 0
+local TOOLBAR_SMALL_GAP_COUNT = 0
+
+for index, item in ipairs(TOOLBAR_ITEMS) do
+    if item.separator then
+        TOOLBAR_SEPARATOR_COUNT = TOOLBAR_SEPARATOR_COUNT + 1
+    end
+
+    local next_item = TOOLBAR_ITEMS[index + 1]
+
+    if next_item and not item.separator and not next_item.separator then
+        TOOLBAR_SMALL_GAP_COUNT = TOOLBAR_SMALL_GAP_COUNT + 1
+    end
+end
+
 MeterHud = class(MeterHud)
 
 MeterHud.init = function(self, mod)
@@ -123,6 +167,7 @@ MeterHud.init = function(self, mod)
     self._visible = false
     self._dragging_separator = nil
     self._column_ratios_by_mode = {}
+    self._toolbar_mouse_was_down = false
 
     self:set_mode("dps")
 end
@@ -175,6 +220,70 @@ end
 
 MeterHud._save_column_ratios = function(self, ratios)
     self._mod:set("meter_column_widths_" .. self._mode, ratios, true)
+end
+
+-- Resets every mode's columns to an even split, both the in-memory cache
+-- MeterHud._get_column_ratios reads from and the persisted settings underneath it -
+-- called by the toolbar's "Default" button (see MeterHud._handle_toolbar_click),
+-- since dragging column separators is otherwise a one-way trip with no way back to
+-- even widths.
+MeterHud.reset_column_ratios = function(self)
+    for mode, meter_template in pairs(self._meters_template) do
+        local column_size = meter_template.column_size
+        local even_ratio = 1 / column_size
+        local ratios = {}
+
+        for i = 1, column_size do
+            ratios[i] = even_ratio
+        end
+
+        self._column_ratios_by_mode[mode] = ratios
+        self._mod:set("meter_column_widths_" .. mode, ratios, true)
+    end
+end
+
+-- "pin" is the only toolbar button whose label depends on state (Pin/Unpin) -
+-- every other item just shows its static TOOLBAR_ITEMS label.
+MeterHud._toolbar_label = function(self, item)
+    if item.id == "pin" then
+        return self:is_pinned() and "Unpin" or "Pin"
+    end
+
+    return item.label
+end
+
+-- Dispatches a toolbar button click (see TOOLBAR_ITEMS and MeterHud.draw) straight
+-- into the score controller / mod, the same calls the removed dpsstart/dpsend/
+-- dpsclear/dpsdefault/dpsmode text commands used to make.
+--
+-- "pin"/"close" don't set self._visible directly - visibility is recomputed every
+-- frame from the pinned setting and whether the tab screen is up (see
+-- MeterHud.update_auto_visibility), so these just drive that setting: pin forces
+-- the meter visible all the time, close (like unpin) drops it back to
+-- tab-screen-only.
+MeterHud._handle_toolbar_click = function(self, id)
+    local scoreController = self._scoreController
+
+    if id == "start" then
+        scoreController:start()
+    elseif id == "end" then
+        scoreController:finish()
+    elseif id == "clear" then
+        scoreController:clear()
+    elseif id == "default" then
+        self._mod.SaveDefaultSettings()
+        self:reset_column_ratios()
+    elseif id == "dps" then
+        self:set_mode("dps")
+        scoreController:set_mode("dps")
+    elseif id == "hps" then
+        self:set_mode("hps")
+        scoreController:set_mode("hps")
+    elseif id == "pin" then
+        self:toggle_pin()
+    elseif id == "close" then
+        self._mod:set("meter_tab_screen_only", true, true)
+    end
 end
 
 -- Called from IngameUI.post_update (see DPSTools.lua) with the game's own ongoing
@@ -250,6 +359,13 @@ MeterHud.draw = function(self, ui_renderer)
         column_x_offsets[i + 1] = column_x_offsets[i] + column_ratios[i] * content_w
     end
 
+    -- The toolbar row sits above the header at [toolbar_band_bottom, toolbar_band_top]
+    -- (see toolbar_row_y/toolbar_row_height further down, which use this same
+    -- formula) - column dragging is excluded from that band so clicking a toolbar
+    -- button can never be mistaken for grabbing a column separator underneath it.
+    local toolbar_band_top = content_y + content_h
+    local toolbar_band_bottom = toolbar_band_top - row_height * TOOLBAR_ROW_HEIGHT_SCALE
+
     -- Columns are only draggable while something else already has the cursor visible
     -- (chat, a menu, etc. via ShowCursorStack) - never captured/shown by us. Reading
     -- raw Mouse state rather than going through an input service means this can't be
@@ -260,8 +376,9 @@ MeterHud.draw = function(self, ui_renderer)
     if ShowCursorStack.cursor_active() then
         local cursor = Mouse.axis(Mouse.axis_index("cursor"))
         local held = Mouse.button(Mouse.button_index("left")) == 1
+        local outside_toolbar = not cursor or cursor[2] < toolbar_band_bottom or cursor[2] > toolbar_band_top
 
-        if cursor and held then
+        if cursor and held and outside_toolbar then
             local cursor_local_x = cursor[1] - content_x
 
             if not self._dragging_separator then
@@ -302,7 +419,105 @@ MeterHud.draw = function(self, ui_renderer)
     -- Rows are stacked from the content rect's far edge down to its near edge (rather
     -- than the other way around) so the header lands first and the sorted-descending
     -- score list reads highest-to-lowest going down, top to bottom.
-    local row_y = content_y + content_h - row_height
+    --
+    -- The very first row is a toolbar strip (not part of the scored table) holding
+    -- the action buttons, laid out left to right the same way column text is.
+    local toolbar_row_y = toolbar_band_top
+    local toolbar_row_height = toolbar_row_y - toolbar_band_bottom
+    local toolbar_button_padding = TOOLBAR_BUTTON_PADDING_Y * scale
+    local toolbar_button_y = toolbar_row_y - toolbar_row_height + toolbar_button_padding
+    local toolbar_button_height = toolbar_row_height - toolbar_button_padding * 2
+    local toolbar_text_padding = TOOLBAR_BUTTON_TEXT_PADDING_X * scale
+    local toolbar_gap = TOOLBAR_BUTTON_GAP * scale
+
+    -- Button widths are measured up front so the separator gaps can be sized to
+    -- soak up whatever's left of content_w - the fixed bits (buttons + the small
+    -- gaps between buttons within a group) are known, so each separator gets an
+    -- equal share of the remainder, stretching the row so the last button's right
+    -- edge lands exactly on the content rect's right border.
+    local toolbar_button_widths = {}
+    local toolbar_button_labels = {}
+    local toolbar_fixed_width = 0
+
+    for index, item in ipairs(TOOLBAR_ITEMS) do
+        if not item.separator then
+            local label = self:_toolbar_label(item)
+            local label_width = UIRenderer.text_size(ui_renderer, label, FONT_MATERIAL, font_size)
+            local button_width = label_width + toolbar_text_padding * 2
+
+            toolbar_button_labels[index] = label
+            toolbar_button_widths[index] = button_width
+            toolbar_fixed_width = toolbar_fixed_width + button_width
+        end
+    end
+
+    toolbar_fixed_width = toolbar_fixed_width + TOOLBAR_SMALL_GAP_COUNT * toolbar_gap
+
+    local toolbar_separator_gap = MathfMax(0, content_w - toolbar_fixed_width) / TOOLBAR_SEPARATOR_COUNT
+
+    -- Read once for the whole row - button rects never overlap, so at most one of
+    -- them can be under the cursor on a given frame.
+    local toolbar_cursor, toolbar_held = nil, false
+
+    if ShowCursorStack.cursor_active() then
+        toolbar_cursor = Mouse.axis(Mouse.axis_index("cursor"))
+        toolbar_held = Mouse.button(Mouse.button_index("left")) == 1
+    end
+
+    local toolbar_clicked_id = nil
+    local toolbar_x = content_x
+
+    for index, item in ipairs(TOOLBAR_ITEMS) do
+        if item.separator then
+            toolbar_x = toolbar_x + toolbar_separator_gap
+        else
+            local button_width = toolbar_button_widths[index]
+
+            local hovered = toolbar_cursor ~= nil
+                and toolbar_cursor[1] >= toolbar_x and toolbar_cursor[1] <= toolbar_x + button_width
+                and toolbar_cursor[2] >= toolbar_button_y and toolbar_cursor[2] <= toolbar_button_y + toolbar_button_height
+
+            -- Fires on the down-transition only, so holding the mouse over a button
+            -- doesn't repeat the action every frame.
+            if hovered and toolbar_held and not self._toolbar_mouse_was_down then
+                toolbar_clicked_id = item.id
+            end
+
+            local button_color = TOOLBAR_BUTTON_COLOR
+
+            if item.id == "pin" and self:is_pinned() then
+                button_color = TOOLBAR_BUTTON_ACTIVE_COLOR
+            elseif hovered then
+                button_color = TOOLBAR_BUTTON_HOVER_COLOR
+            end
+
+            UIRenderer.draw_rounded_rect(ui_renderer, { toolbar_x, toolbar_button_y, BASE_LAYER + 3 }, { button_width, toolbar_button_height }, TOOLBAR_BUTTON_CORNER_RADIUS * scale, button_color)
+
+            local text_y = toolbar_button_y + toolbar_button_height / 2 - font_center_offset
+
+            UIRenderer.draw_text(ui_renderer, toolbar_button_labels[index], FONT_MATERIAL, font_size, FONT_NAME, Vector3(toolbar_x + toolbar_text_padding, text_y, BASE_LAYER + 4), TEXT_COLOR)
+
+            -- Only add the small fixed gap when the next item is another button -
+            -- a following separator already brings its own (wider) gap, and adding
+            -- both here is exactly the width the layout forgot to budget for,
+            -- which pushed the row past the right border.
+            local next_item = TOOLBAR_ITEMS[index + 1]
+
+            toolbar_x = toolbar_x + button_width
+
+            if next_item and not next_item.separator then
+                toolbar_x = toolbar_x + toolbar_gap
+            end
+        end
+    end
+
+    self._toolbar_mouse_was_down = toolbar_held
+
+    if toolbar_clicked_id then
+        self:_handle_toolbar_click(toolbar_clicked_id)
+    end
+
+    local row_y = toolbar_row_y - toolbar_row_height
 
     -- Every row draws its own bottom border (see draw_row_separators), which doubles
     -- as the top border for the row below it - except the header, which has nothing
@@ -385,9 +600,29 @@ MeterHud.is_visible = function(self)
     return self._visible
 end
 
-MeterHud.set_visible = function(self, state)
-    self._dragging_separator = nil
-    self._visible = state
+-- Pinned state lives entirely in the "meter_tab_screen_only" setting (see
+-- DPSTools_data.lua) rather than a separate in-memory flag, so the Pin/Unpin
+-- button and the mod options checkbox both read/drive the exact same switch.
+MeterHud.is_pinned = function(self)
+    return not self._mod:get("meter_tab_screen_only")
+end
+
+MeterHud.toggle_pin = function(self)
+    self._mod:set("meter_tab_screen_only", self:is_pinned(), true)
+end
+
+-- Called once a frame (see DPSTools.lua's IngameUI.post_update hook) with whether
+-- the game's own tab/player-list screen is currently up. By default (pinned =
+-- false) the meter is only visible while that screen is up; pinning it forces it
+-- visible all the time regardless.
+MeterHud.update_auto_visibility = function(self, tab_screen_active)
+    local visible = self:is_pinned() or tab_screen_active
+
+    if not visible then
+        self._dragging_separator = nil
+    end
+
+    self._visible = visible
 end
 
 MeterHud.set_mode = function(self, mode)
