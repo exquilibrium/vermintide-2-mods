@@ -76,6 +76,20 @@ local IGNORED_FRIENDLY_FIRE_DAMAGE_TYPES = {
 	overcharge = true,
 }
 
+-- victim_breed.boss is true for far more than the named Lords (trolls,
+-- minotaur, the boss-tier rat ogre, the elite Stormfiend, etc.) - this is
+-- the actual Lord roster, keyed by breed.name, verified against
+-- achievement_templates.lua's kill_bodvarr_burblespew/kill_skarrik_rasknitt
+-- difficulty-rank checks (Rasknitt has two breeds, one per fight phase).
+local LORD_BREEDS = {
+	chaos_exalted_champion = true, -- Bodvarr Ribspreader
+	chaos_exalted_sorcerer = true, -- Burblespue Halescourge
+	chaos_exalted_sorcerer_drachenfels = true, -- Nurgloth
+	skaven_grey_seer = true, -- Rasknitt, phase 1
+	skaven_stormfiend_boss = true, -- Rasknitt, phase 2
+	skaven_storm_vermin_warlord = true, -- Skarrik Spinemanglr
+}
+
 mod:hook_safe(StatisticsUtil, "register_kill", function (victim_unit, damage_data, statistics_db, is_server)
 	local victim_health_extension = ScriptUnit.has_extension(victim_unit, "health_system")
 	local victim_damage_data = victim_health_extension and victim_health_extension.last_damage_data
@@ -193,7 +207,7 @@ mod:hook_safe(StatisticsUtil, "register_damage", function (victim_unit, damage_d
 	scores.burst_end_t = t + burst_window
 	scores.bestburst = math.max(scores.bestburst or 0, scores.actualburst)
 
-	if victim_breed.boss then
+	if LORD_BREEDS[victim_breed.name] then
 		scores.lord_dmg = (scores.lord_dmg or 0) + damage_amount
 	elseif victim_breed.elite then
 		scores.elite_dmg = (scores.elite_dmg or 0) + damage_amount
@@ -203,9 +217,9 @@ mod:hook_safe(StatisticsUtil, "register_damage", function (victim_unit, damage_d
 
 	if POISON_DAMAGE_TYPES[damage_type] then
 		scores.poison = (scores.poison or 0) + damage_amount
-	elseif damage_type == "burning" or damage_type == "fire_dot" then
+	elseif damage_type == "burninating" then
 		scores.burninating = (scores.burninating or 0) + damage_amount
-	elseif damage_type == "bleeding" or damage_type == "bleed_dot" then
+	elseif damage_type == "bleed" then
 		scores.bleed = (scores.bleed or 0) + damage_amount
 	elseif damage_type == "overcharge" then
 		scores.overcharge = (scores.overcharge or 0) + damage_amount
