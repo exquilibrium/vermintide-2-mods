@@ -366,20 +366,13 @@ mod:dofile("scripts/mods/Ubersreik5/CustomScoreboard")
 mod:dofile("scripts/mods/Ubersreik5/CustomScoreboardScoresFunctions")
 mod:dofile("scripts/mods/Ubersreik5/MatchmakingPartySlot5")
 mod:dofile("scripts/mods/Ubersreik5/ConflictDirectorClustering")
-mod:dofile("scripts/mods/Ubersreik5/SkipEndOfLevelLoot")
+-- Kept for archiving.
+--mod:dofile("scripts/mods/Ubersreik5/SkipEndOfLevelLoot")
 
 mod.on_all_mods_loaded = function ()
 	fillwithbots = mod:get("numberofbots")
-
-	if mod.scoreboard then
-		mod.scoreboard.rows = mod:get("extend")
-	end
 end
 
 mod.on_setting_changed = function ()
 	fillwithbots = mod:get("numberofbots")
-
-	if mod.scoreboard then
-		mod.scoreboard.rows = mod:get("extend")
-	end
 end

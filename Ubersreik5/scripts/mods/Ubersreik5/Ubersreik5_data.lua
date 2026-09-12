@@ -13,18 +13,6 @@ return {
 			},
 			{
 				type = "numeric",
-				setting_id = "extend",
-				notify_mod = true,
-				default_value = 13,
-				decimals_number = 0,
-				unit_text = "unit_text_empty",
-				range = {
-					11,
-					25,
-				},
-			},
-			{
-				type = "numeric",
 				setting_id = "numberofbots",
 				notify_mod = true,
 				default_value = 3,

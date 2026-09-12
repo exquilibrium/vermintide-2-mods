@@ -4,21 +4,27 @@ local mod = get_mod("Ubersreik5")
 -- stat columns. See README.md for why this needs full widget recreation
 -- rather than just resizing scenegraph nodes.
 
--- Row capacity to build every score widget with (independent of how many
--- rows are shown at once - see mod.scoreboard.rows below).
+-- Row capacity to build every score widget with
 local WIDGET_ROW_CAPACITY = 25
 
 mod.scores = {}
 
--- Row layout math mirrors vanilla's own row-height formula (39px, not 40).
--- BOTTOM_PADDING_ROWS cancels out dead space that otherwise grows with the
--- "extend" setting. See README.md.
+-- Row layout math mirrors vanilla's own row-height
 local BOTTOM_PADDING_ROWS = 1
+
+-- Hoisted to module scope
+local TOP_OFFSET = -250
+
+-- Keeps the panel's bottom edge from growing over vanilla's own "return to keep" button
+local READY_BUTTON_TOP_EDGE = 150
+local BUTTON_MARGIN = 30
+-- Floor so a degenerate/extreme aspect ratio still shows a usable board instead of shrinking toward zero (or negative) rows.
+local MIN_ROWS = 6
 
 mod.scoreboard = {
 	rows_default = 11,
 	row_height = 39,
-	rows = mod:get("extend"),
+	rows = 11,
 	extension = function (self)
 		return (self.rows - self.rows_default) * self.row_height
 	end,
@@ -32,28 +38,38 @@ mod.scoreboard = {
 			self.player_score_size_default[2] + self:extension(),
 		}
 	end,
+	-- Recomputed on every scoreboard build
+	fit_rows_to_screen = function (self)
+		local screen_size_y = RESOLUTION_LOOKUP.res_h * RESOLUTION_LOOKUP.inv_scale
+		local max_panel_height = screen_size_y + TOP_OFFSET - READY_BUTTON_TOP_EDGE - BUTTON_MARGIN
+		local rows = math.floor((max_panel_height - 80) / self.row_height) - BOTTOM_PADDING_ROWS
+
+		self.rows = math.clamp(rows, MIN_ROWS, WIDGET_ROW_CAPACITY)
+	end,
 }
 
 mod.custom_entries = {
 	list = {},
-	register = function (self, id, text, sort_type, callback)
+	register = function (self, id, text, sort_type, callback, decimals)
 		if self:get(id) then
 			mod:echo("Entry '" .. id .. "' has already been registered!")
 
 			return false
 		end
 
-		self:add(id, text, sort_type, callback)
+		self:add(id, text, sort_type, callback, decimals)
 
 		return true
 	end,
-	add = function (self, id, text, sort_type, callback)
+	add = function (self, id, text, sort_type, callback, decimals)
 		self.list[#self.list + 1] = {
 			enabled = true,
 			id = id,
 			text = text,
 			type = sort_type,
 			callback = callback,
+			-- DoT totals (poison/burninating/bleed) accumulate in small fractional increments per tick
+			decimals = decimals,
 		}
 	end,
 	get = function (self, id)
@@ -67,12 +83,11 @@ mod.custom_entries = {
 	end,
 }
 
-mod.register_entry = function (self, id, text, sort_type, callback)
-	return self.custom_entries:register(id, text, sort_type, callback)
+mod.register_entry = function (self, id, text, sort_type, callback, decimals)
+	return self.custom_entries:register(id, text, sort_type, callback, decimals)
 end
 
--- Scrollbar over self._scoreboard_rows (row 1, player names, is fixed and
--- excluded). Manual scroll only - see README.md for why.
+-- Scrollbar over self._scoreboard_rows. Manual scroll only
 mod.scrollbar = {
 	start_index = 1,
 	total_rows = 0,
@@ -153,10 +168,12 @@ mod.scrollbar = {
 -- the same (table, method) pair. See README.md.
 mod:hook(UISceneGraph, "init_scenegraph", function (func, scenegraph_def, ...)
 	if scenegraph_def.player_panel_4 and scenegraph_def.scores_topics then
+		mod.scoreboard:fit_rows_to_screen()
+
 		local panel_size = mod.scoreboard:player_score_size()
-		-- "top" alignment needs no extension()-size compensation, unlike
-		-- "center" would. See README.md.
-		local TOP_OFFSET = -250
+		-- TOP_OFFSET is a module-level local (see top of file) - "top"
+		-- alignment needs no extension()-size compensation, unlike "center"
+		-- would. See README.md.
 
 		scenegraph_def.scores_topics.horizontal_alignment = "center"
 		scenegraph_def.scores_topics.vertical_alignment = "top"
@@ -165,8 +182,8 @@ mod:hook(UISceneGraph, "init_scenegraph", function (func, scenegraph_def, ...)
 		scenegraph_def.scores_topics.position[2] = TOP_OFFSET
 
 		-- scenegraph_def is vanilla's shared module-level table, so add-once
-		-- guard the new nodes, but keep re-applying "extend"-dependent sizing
-		-- below on every call. See README.md.
+		-- guard the new nodes, but keep re-applying rows/screen-dependent
+		-- sizing below on every call. See README.md.
 		if not scenegraph_def.player_panel_5 then
 			-- vertical_alignment/position[2] are placeholders; the loop below
 			-- overwrites both for all 5 panels.
@@ -375,6 +392,7 @@ mod:hook_safe(EndViewStateScore, "_setup_score_panel", function (self, score_pan
 				topic_text = entry.text,
 				scores = scores,
 				lowest_is_best = entry.type == "lowest",
+				decimals = entry.decimals,
 			}
 		end
 	end
@@ -402,7 +420,9 @@ EndViewStateScore._render_scoreboard_rows = function (self, start_index)
 			local best_score, best_player_index
 
 			for player_index, player_score in pairs(row.scores) do
-				player_score = math.round(player_score)
+				if not row.decimals then
+					player_score = math.round(player_score)
+				end
 
 				if not best_score or (row.lowest_is_best and player_score < best_score) or (not row.lowest_is_best and player_score > best_score) then
 					best_score = player_score
@@ -416,7 +436,7 @@ EndViewStateScore._render_scoreboard_rows = function (self, start_index)
 				if widget then
 					local row_content = widget.content[row_name]
 
-					row_content[score_text_name] = math.round(player_score)
+					row_content[score_text_name] = row.decimals and string.format("%.2f", player_score) or math.round(player_score)
 					row_content.has_background = screen_row % 2 == 0
 					row_content.has_highscore = player_index == best_player_index and best_score ~= 0
 					row_content.has_score = true
