@@ -1,0 +1,11 @@
+mod = [
+	"AccessibilityOptions"
+]
+
+package = [
+	"resource_packages/AccessibilityOptions/AccessibilityOptions"
+]
+
+lua = [
+	"scripts/mods/AccessibilityOptions/*"
+]

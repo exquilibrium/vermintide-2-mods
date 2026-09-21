@@ -1,0 +1,11 @@
+mod = [
+	"SetWobble"
+]
+
+package = [
+	"resource_packages/SetWobble/SetWobble"
+]
+
+lua = [
+	"scripts/mods/SetWobble/*"
+]

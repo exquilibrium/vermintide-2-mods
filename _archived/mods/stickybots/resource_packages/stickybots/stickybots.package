@@ -1,0 +1,11 @@
+mod = [
+	"stickybots"
+]
+
+package = [
+	"resource_packages/stickybots/stickybots"
+]
+
+lua = [
+	"scripts/mods/stickybots/*"
+]

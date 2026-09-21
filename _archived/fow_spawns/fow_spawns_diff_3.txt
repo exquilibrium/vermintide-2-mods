@@ -1,0 +1,2525 @@
+Champion = {
+	{
+		{
+			{
+				"delay",
+				duration = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "skaven_slave",
+				amount = 20
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "skaven_clan_rat",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "chaos_fanatic",
+				amount = 20
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "chaos_marauder",
+				amount = 2
+			},
+			{
+				"delay",
+				duration = 12
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_e",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_h",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 8
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_slave",
+				amount = 35
+			},
+			{
+				"delay",
+				duration = 10
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_i",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 8
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "directional_h",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 4
+			},
+			{
+				"spawn",
+				spawner_id = "directional_e",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 4
+			},
+			{
+				"delay",
+				duration = 10
+			},
+			{
+				"continue_when",
+				duration = 100,
+				condition = 3
+			}
+		}
+	},
+	{
+		{
+			{
+				"delay",
+				duration = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_fanatic",
+				amount = 32
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_marauder",
+				amount = 5
+			},
+			{
+				"delay",
+				duration = 10
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 20
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "chaos_warrior",
+				amount = 4
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "chaos_marauder",
+				amount = 6
+			},
+			{
+				"delay",
+				duration = 10
+			},
+			{
+				"spawn",
+				spawner_id = "manual_g",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_c",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_h",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_a",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_i",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 3
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 2
+			}
+		},
+		{
+			{
+				"delay",
+				duration = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_e",
+				breed_id = "chaos_fanatic",
+				amount = 20
+			},
+			{
+				"spawn",
+				spawner_id = "directional_e",
+				breed_id = "chaos_marauder",
+				amount = 10
+			},
+			{
+				"spawn",
+				spawner_id = "directional_c",
+				breed_id = "chaos_fanatic",
+				amount = 20
+			},
+			{
+				"spawn",
+				spawner_id = "directional_c",
+				breed_id = "chaos_marauder",
+				amount = 10
+			},
+			{
+				"delay",
+				duration = 7
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 10
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "spawner_flush_in",
+				breed_id = "skaven_slave",
+				amount = 28
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_in",
+				breed_id = "skaven_clan_rat_with_shield",
+				amount = 2
+			},
+			{
+				"delay",
+				duration = 3
+			},
+			{
+				"spawn",
+				spawner_id = "manual_k",
+				breed_id = "chaos_spawn",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 4
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_fanatic",
+				amount = 12
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_marauder",
+				amount = 10
+			},
+			{
+				"spawn",
+				spawner_id = "directional_f",
+				breed_id = "chaos_fanatic",
+				amount = 12
+			},
+			{
+				"spawn",
+				spawner_id = "directional_f",
+				breed_id = "chaos_marauder",
+				amount = 10
+			},
+			{
+				"delay",
+				duration = 4
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 2
+			},
+			{
+				"spawn",
+				spawner_id = "manual_e",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 2
+			},
+			{
+				"spawn",
+				spawner_id = "manual_g",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 2
+			},
+			{
+				"spawn",
+				spawner_id = "manual_j",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 2
+			},
+			{
+				"spawn",
+				spawner_id = "manual_i",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"continue_when",
+				duration = 120,
+				condition = 1
+			}
+		}
+	},
+	{
+		{
+			{
+				"delay",
+				duration = 3
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"delay",
+				duration = 4
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_slave",
+				amount = 40
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_clan_rat_with_shield",
+				amount = 4
+			},
+			{
+				"delay",
+				duration = 5
+			},
+			{
+				"spawn",
+				spawner_id = "manual_h",
+				breed_id = "skaven_gutter_runner",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "skaven_gutter_runner",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_c",
+				breed_id = "skaven_gutter_runner",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_g",
+				breed_id = "skaven_gutter_runner",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_a",
+				breed_id = "skaven_gutter_runner",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_d",
+				breed_id = "skaven_gutter_runner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 3
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 4
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "spawner_flush_in",
+				breed_id = "skaven_slave",
+				amount = 40
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_in",
+				breed_id = "skaven_clan_rat",
+				amount = 4
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_in",
+				breed_id = "skaven_clan_rat_with_shield",
+				amount = 2
+			},
+			{
+				"delay",
+				duration = 8
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 12
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 3
+			},
+			{
+				"spawn",
+				spawner_id = "directional_b",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 3
+			},
+			{
+				"spawn",
+				spawner_id = "directional_g",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 3
+			},
+			{
+				"spawn",
+				spawner_id = "directional_f",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 3
+			},
+			{
+				"delay",
+				duration = 6
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 10
+			}
+		},
+		{
+			{
+				"delay",
+				duration = 3
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_fanatic",
+				amount = 23
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_marauder",
+				amount = 10
+			},
+			{
+				"delay",
+				duration = 12
+			},
+			{
+				"spawn",
+				spawner_id = "manual_e",
+				breed_id = "chaos_vortex_sorcerer",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_g",
+				breed_id = "chaos_vortex_sorcerer",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "chaos_vortex_sorcerer",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_c",
+				breed_id = "chaos_vortex_sorcerer",
+				amount = 1
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 8
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "chaos_marauder_with_shield",
+				amount = 10
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "chaos_marauder",
+				amount = 6
+			},
+			{
+				"delay",
+				duration = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_berzerker",
+				amount = 8
+			},
+			{
+				"delay",
+				duration = 8
+			},
+			{
+				"continue_when",
+				duration = 120,
+				condition = 3
+			}
+		}
+	},
+	{
+		{
+			{
+				"delay",
+				duration = 3
+			},
+			{
+				"spawn",
+				spawner_id = "directional_c",
+				breed_id = "chaos_fanatic",
+				amount = 20
+			},
+			{
+				"spawn",
+				spawner_id = "directional_c",
+				breed_id = "chaos_marauder",
+				amount = 3
+			},
+			{
+				"spawn",
+				spawner_id = "directional_f",
+				breed_id = "chaos_fanatic",
+				amount = 20
+			},
+			{
+				"spawn",
+				spawner_id = "directional_f",
+				breed_id = "chaos_marauder",
+				amount = 3
+			},
+			{
+				"delay",
+				duration = 8
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_marauder",
+				amount = 3
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_marauder_with_shield",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_raider",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "chaos_marauder",
+				amount = 3
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "chaos_marauder_with_shield",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "chaos_raider",
+				amount = 2
+			},
+			{
+				"delay",
+				duration = 8
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 20
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "directional_g",
+				breed_id = "chaos_warrior",
+				amount = 3
+			},
+			{
+				"spawn",
+				spawner_id = "directional_c",
+				breed_id = "chaos_warrior",
+				amount = 3
+			},
+			{
+				"delay",
+				duration = 10
+			},
+			{
+				"spawn",
+				spawner_id = "manual_k",
+				breed_id = "chaos_corruptor_sorcerer",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_j",
+				breed_id = "chaos_corruptor_sorcerer",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_g",
+				breed_id = "chaos_corruptor_sorcerer",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_i",
+				breed_id = "chaos_corruptor_sorcerer",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_a",
+				breed_id = "chaos_corruptor_sorcerer",
+				amount = 1
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 5
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_slave",
+				amount = 15
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_clan_rat",
+				amount = 7
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_in",
+				breed_id = "skaven_slave",
+				amount = 15
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_in",
+				breed_id = "skaven_clan_rat",
+				amount = 7
+			},
+			{
+				"delay",
+				duration = 6
+			},
+			{
+				"spawn",
+				spawner_id = "manual_e",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_j",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_h",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_i",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_c",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 4
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 6
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "directional_h",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 3
+			},
+			{
+				"spawn",
+				spawner_id = "directional_h",
+				breed_id = "skaven_storm_vermin_with_shield",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_e",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 3
+			},
+			{
+				"spawn",
+				spawner_id = "directional_e",
+				breed_id = "skaven_storm_vermin_with_shield",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_in",
+				breed_id = "skaven_slave",
+				amount = 15
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_in",
+				breed_id = "skaven_clan_rat",
+				amount = 7
+			},
+			{
+				"delay",
+				duration = 4
+			},
+			{
+				"spawn",
+				spawner_id = "manual_b",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_i",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"continue_when",
+				duration = 100,
+				condition = 1
+			}
+		}
+	},
+	{
+		{
+			{
+				"delay",
+				duration = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_fanatic",
+				amount = 18
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_marauder_with_shield",
+				amount = 3
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_marauder",
+				amount = 15
+			},
+			{
+				"delay",
+				duration = 12
+			},
+			{
+				"spawn",
+				spawner_id = "manual_i",
+				breed_id = "skaven_warpfire_thrower",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_a",
+				breed_id = "skaven_warpfire_thrower",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_d",
+				breed_id = "skaven_warpfire_thrower",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "skaven_warpfire_thrower",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_c",
+				breed_id = "skaven_warpfire_thrower",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_g",
+				breed_id = "skaven_plague_monk",
+				amount = 6
+			},
+			{
+				"spawn",
+				spawner_id = "directional_e",
+				breed_id = "skaven_plague_monk",
+				amount = 6
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 8
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "manual_j",
+				breed_id = "skaven_stormfiend",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 10
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_slave",
+				amount = 40
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_clan_rat",
+				amount = 10
+			},
+			{
+				"delay",
+				duration = 5
+			},
+			{
+				"spawn",
+				spawner_id = "manual_h",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_j",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_g",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 5
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_slave",
+				amount = 35
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_clan_rat",
+				amount = 15
+			},
+			{
+				"delay",
+				duration = 10
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_h",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_a",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_b",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_c",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 5
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "skaven_slave",
+				amount = 35
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "skaven_clan_rat",
+				amount = 15
+			},
+			{
+				"delay",
+				duration = 10
+			},
+			{
+				"spawn",
+				spawner_id = "directional_f",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 7
+			},
+			{
+				"continue_when",
+				duration = 160,
+				condition = 1
+			}
+		}
+	},
+	{
+		{
+			{
+				"delay",
+				duration = 2
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_in",
+				breed_id = "skaven_slave",
+				amount = 20
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_in",
+				breed_id = "skaven_clan_rat",
+				amount = 6
+			},
+			{
+				"spawn",
+				spawner_id = "directional_h",
+				breed_id = "skaven_plague_monk",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_b",
+				breed_id = "skaven_plague_monk",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_f",
+				breed_id = "skaven_plague_monk",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_c",
+				breed_id = "skaven_plague_monk",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_g",
+				breed_id = "skaven_plague_monk",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_e",
+				breed_id = "skaven_plague_monk",
+				amount = 2
+			},
+			{
+				"delay",
+				duration = 8
+			},
+			{
+				"continue_when",
+				duration = 100,
+				condition = 8
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "directional_g",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 8
+			},
+			{
+				"spawn",
+				spawner_id = "directional_g",
+				breed_id = "skaven_storm_vermin_with_shield",
+				amount = 3
+			},
+			{
+				"spawn",
+				spawner_id = "directional_c",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 8
+			},
+			{
+				"spawn",
+				spawner_id = "directional_c",
+				breed_id = "skaven_storm_vermin_with_shield",
+				amount = 3
+			},
+			{
+				"delay",
+				duration = 5
+			},
+			{
+				"spawn",
+				spawner_id = "manual_h",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_j",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_g",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 5
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "directional_e",
+				breed_id = "skaven_slave",
+				amount = 32
+			},
+			{
+				"spawn",
+				spawner_id = "directional_e",
+				breed_id = "skaven_clan_rat",
+				amount = 5
+			},
+			{
+				"spawn",
+				spawner_id = "directional_h",
+				breed_id = "skaven_slave",
+				amount = 32
+			},
+			{
+				"spawn",
+				spawner_id = "directional_h",
+				breed_id = "skaven_clan_rat",
+				amount = 5
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"delay",
+				duration = 8
+			},
+			{
+				"spawn",
+				spawner_id = "manual_k",
+				breed_id = "skaven_gutter_runner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_j",
+				breed_id = "skaven_gutter_runner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_c",
+				breed_id = "skaven_gutter_runner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_a",
+				breed_id = "skaven_gutter_runner",
+				amount = 1
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 3
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "directional_b",
+				breed_id = "chaos_raider",
+				amount = 4
+			},
+			{
+				"spawn",
+				spawner_id = "directional_b",
+				breed_id = "chaos_fanatic",
+				amount = 10
+			},
+			{
+				"spawn",
+				spawner_id = "directional_f",
+				breed_id = "chaos_raider",
+				amount = 4
+			},
+			{
+				"spawn",
+				spawner_id = "directional_f",
+				breed_id = "chaos_fanatic",
+				amount = 10
+			},
+			{
+				"delay",
+				duration = 12
+			},
+			{
+				"spawn",
+				spawner_id = "manual_c",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_j",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_h",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_e",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 10
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_slave",
+				amount = 20
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_clan_rat",
+				amount = 6
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_in",
+				breed_id = "skaven_slave",
+				amount = 20
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_in",
+				breed_id = "skaven_clan_rat",
+				amount = 6
+			},
+			{
+				"delay",
+				duration = 12
+			},
+			{
+				"continue_when",
+				duration = 120,
+				condition = 3
+			}
+		}
+	},
+	{
+		{
+			{
+				"delay",
+				duration = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "skaven_slave",
+				amount = 20
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "skaven_slave",
+				amount = 20
+			},
+			{
+				"delay",
+				duration = 10
+			},
+			{
+				"spawn",
+				spawner_id = "manual_j",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_h",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_g",
+				breed_id = "chaos_corruptor_sorcerer",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "chaos_corruptor_sorcerer",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 8
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 10
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "chaos_vortex_sorcerer",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_i",
+				breed_id = "chaos_vortex_sorcerer",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_slave",
+				amount = 30
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_clan_rat",
+				amount = 8
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_in",
+				breed_id = "skaven_slave",
+				amount = 30
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_in",
+				breed_id = "skaven_clan_rat",
+				amount = 8
+			},
+			{
+				"delay",
+				duration = 8
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 10
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "directional_h",
+				breed_id = "skaven_plague_monk",
+				amount = 6
+			},
+			{
+				"spawn",
+				spawner_id = "directional_e",
+				breed_id = "skaven_plague_monk",
+				amount = 6
+			},
+			{
+				"delay",
+				duration = 8
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 5
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "skaven_clan_rat_with_shield",
+				amount = 10
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 4
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "skaven_clan_rat_with_shield",
+				amount = 10
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 4
+			},
+			{
+				"delay",
+				duration = 5
+			},
+			{
+				"spawn",
+				spawner_id = "manual_j",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_i",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_g",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_h",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"continue_when",
+				duration = 80,
+				condition = 2
+			}
+		},
+		{
+			{
+				"delay",
+				duration = 5
+			},
+			{
+				"spawn",
+				spawner_id = "directional_e",
+				breed_id = "chaos_warrior",
+				amount = 7
+			},
+			{
+				"spawn",
+				spawner_id = "directional_h",
+				breed_id = "chaos_warrior",
+				amount = 7
+			},
+			{
+				"delay",
+				duration = 5
+			},
+			{
+				"spawn",
+				spawner_id = "manual_i",
+				breed_id = "chaos_vortex_sorcerer",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_e",
+				breed_id = "chaos_vortex_sorcerer",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_g",
+				breed_id = "chaos_vortex_sorcerer",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_b",
+				breed_id = "chaos_vortex_sorcerer",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_b",
+				breed_id = "chaos_vortex_sorcerer",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 5
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_slave",
+				amount = 30
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_clan_rat",
+				amount = 8
+			},
+			{
+				"continue_when",
+				duration = 180,
+				condition = 2
+			}
+		}
+	},
+	{
+		{
+			{
+				"delay",
+				duration = 5
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_marauder",
+				amount = 16
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_raider",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_warrior",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "chaos_marauder",
+				amount = 16
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "chaos_raider",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "chaos_warrior",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 20
+			},
+			{
+				"spawn",
+				spawner_id = "manual_g",
+				breed_id = "chaos_troll",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 8
+			},
+			{
+				"spawn",
+				spawner_id = "manual_d",
+				breed_id = "skaven_rat_ogre",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 10
+			},
+			{
+				"continue_when",
+				duration = 120,
+				condition = 6
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_slave",
+				amount = 22
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_clan_rat",
+				amount = 10
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_in",
+				breed_id = "skaven_slave",
+				amount = 22
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_in",
+				breed_id = "skaven_clan_rat",
+				amount = 10
+			},
+			{
+				"delay",
+				duration = 3
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"delay",
+				duration = 8
+			},
+			{
+				"spawn",
+				spawner_id = "manual_i",
+				breed_id = "skaven_gutter_runner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_d",
+				breed_id = "skaven_gutter_runner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_e",
+				breed_id = "skaven_gutter_runner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"continue_when",
+				duration = 120,
+				condition = 6
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "directional_h",
+				breed_id = "chaos_berzerker",
+				amount = 4
+			},
+			{
+				"spawn",
+				spawner_id = "directional_h",
+				breed_id = "chaos_raider",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_f",
+				breed_id = "chaos_berzerker",
+				amount = 4
+			},
+			{
+				"spawn",
+				spawner_id = "directional_f",
+				breed_id = "chaos_raider",
+				amount = 2
+			},
+			{
+				"delay",
+				duration = 12
+			},
+			{
+				"spawn",
+				spawner_id = "manual_i",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_e",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_slave",
+				amount = 22
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_clan_rat",
+				amount = 10
+			},
+			{
+				"delay",
+				duration = 12
+			},
+			{
+				"continue_when",
+				duration = 160,
+				condition = 6
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_marauder",
+				amount = 16
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_raider",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_warrior",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 5
+			},
+			{
+				"spawn",
+				spawner_id = "manual_h",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_g",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 5
+			},
+			{
+				"continue_when",
+				duration = 160,
+				condition = 6
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "directional_c",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 6
+			},
+			{
+				"spawn",
+				spawner_id = "directional_c",
+				breed_id = "skaven_storm_vermin_with_shield",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_g",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 6
+			},
+			{
+				"spawn",
+				spawner_id = "directional_g",
+				breed_id = "skaven_storm_vermin_with_shield",
+				amount = 2
+			},
+			{
+				"delay",
+				duration = 15
+			},
+			{
+				"spawn",
+				spawner_id = "manual_j",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_k",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_h",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_h",
+				breed_id = "skaven_pack_master",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"continue_when",
+				duration = 120,
+				condition = 6
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_slave",
+				amount = 38
+			},
+			{
+				"spawn",
+				spawner_id = "directional_h",
+				breed_id = "skaven_plague_monk",
+				amount = 3
+			},
+			{
+				"spawn",
+				spawner_id = "directional_e",
+				breed_id = "skaven_plague_monk",
+				amount = 3
+			},
+			{
+				"delay",
+				duration = 12
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"delay",
+				duration = 8
+			},
+			{
+				"spawn",
+				spawner_id = "manual_a",
+				breed_id = "skaven_gutter_runner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_c",
+				breed_id = "skaven_gutter_runner",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_h",
+				breed_id = "skaven_poison_wind_globadier",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "skaven_ratling_gunner",
+				amount = 1
+			},
+			{
+				"continue_when",
+				duration = 160,
+				condition = 6
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_marauder",
+				amount = 6
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_raider",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_marauder_with_shield",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "chaos_marauder",
+				amount = 6
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "chaos_raider",
+				amount = 2
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "chaos_marauder_with_shield",
+				amount = 2
+			},
+			{
+				"delay",
+				duration = 12
+			},
+			{
+				"spawn",
+				spawner_id = "manual_a",
+				breed_id = "skaven_warpfire_thrower",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_d",
+				breed_id = "skaven_warpfire_thrower",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 15
+			},
+			{
+				"spawn",
+				spawner_id = "directional_f",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 6
+			},
+			{
+				"spawn",
+				spawner_id = "directional_h",
+				breed_id = "skaven_storm_vermin_commander",
+				amount = 6
+			},
+			{
+				"delay",
+				duration = 25
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "skaven_warpfire_thrower",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_h",
+				breed_id = "skaven_warpfire_thrower",
+				amount = 1
+			},
+			{
+				"spawn",
+				spawner_id = "directional_e",
+				breed_id = "chaos_warrior",
+				amount = 4
+			},
+			{
+				"delay",
+				duration = 4
+			},
+			{
+				"spawn",
+				spawner_id = "manual_j",
+				breed_id = "chaos_vortex_sorcerer",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_f",
+				breed_id = "chaos_vortex_sorcerer",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_k",
+				breed_id = "chaos_corruptor_sorcerer",
+				amount = 1
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "manual_g",
+				breed_id = "chaos_corruptor_sorcerer",
+				amount = 1
+			},
+			{
+				"continue_when",
+				duration = 160,
+				condition = 10
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_marauder",
+				amount = 4
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "directional_b",
+				breed_id = "chaos_marauder",
+				amount = 4
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "directional_c",
+				breed_id = "chaos_marauder",
+				amount = 4
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "chaos_marauder",
+				amount = 4
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "directional_e",
+				breed_id = "chaos_marauder",
+				amount = 4
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "directional_f",
+				breed_id = "chaos_marauder",
+				amount = 4
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "directional_g",
+				breed_id = "chaos_marauder",
+				amount = 4
+			},
+			{
+				"delay",
+				duration = 1
+			},
+			{
+				"spawn",
+				spawner_id = "directional_h",
+				breed_id = "chaos_marauder",
+				amount = 4
+			},
+			{
+				"delay",
+				duration = 15
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_slave",
+				amount = 22
+			},
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_clan_rat",
+				amount = 10
+			},
+			{
+				"delay",
+				duration = 8
+			},
+			{
+				"continue_when",
+				duration = 160,
+				condition = 5
+			}
+		},
+		{
+			{
+				"spawn",
+				spawner_id = "spawner_flush_out",
+				breed_id = "skaven_slave",
+				amount = 38
+			},
+			{
+				"spawn",
+				spawner_id = "directional_d",
+				breed_id = "chaos_warrior",
+				amount = 4
+			},
+			{
+				"spawn",
+				spawner_id = "directional_a",
+				breed_id = "chaos_warrior",
+				amount = 4
+			},
+			{
+				"delay",
+				duration = 10
+			},
+			{
+				"continue_when",
+				duration = 300,
+				condition = 1
+			}
+		}
+	}
+},

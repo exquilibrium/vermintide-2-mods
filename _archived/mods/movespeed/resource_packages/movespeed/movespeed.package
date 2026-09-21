@@ -1,0 +1,11 @@
+mod = [
+	"movespeed"
+]
+
+package = [
+	"resource_packages/movespeed/movespeed"
+]
+
+lua = [
+	"scripts/mods/movespeed/*"
+]

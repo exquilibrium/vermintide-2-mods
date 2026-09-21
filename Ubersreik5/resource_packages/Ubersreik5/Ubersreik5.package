@@ -1,0 +1,11 @@
+mod = [
+	"Ubersreik5"
+]
+
+package = [
+	"resource_packages/Ubersreik5/Ubersreik5"
+]
+
+lua = [
+	"scripts/mods/Ubersreik5/*"
+]

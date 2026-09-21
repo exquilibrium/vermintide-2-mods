@@ -1,0 +1,11 @@
+mod = [
+	"invisible"
+]
+
+package = [
+	"resource_packages/invisible/invisible"
+]
+
+lua = [
+	"scripts/mods/invisible/*"
+]
