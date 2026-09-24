@@ -1,7 +1,7 @@
 return {
 	is_mutator = false,
 	name = "Ubersreik5",
-	is_togglable = true,
+	is_togglable = false,
 	description = get_mod("Ubersreik5"):localize("mod_description"),
 	mutator_settings = {},
 	options = {
