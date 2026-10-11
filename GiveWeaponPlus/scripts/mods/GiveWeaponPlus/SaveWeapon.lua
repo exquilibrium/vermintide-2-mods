@@ -555,6 +555,7 @@ end
 mod.create_saved_item = function(self, backend_id, savestring)
 	local item_key = mod:get_item_name_from_save_id(backend_id)
 	local savestring_data = mod:parse_savestring(item_key, savestring)
+	local item_created = false
 
 	if mod:is_item_key_valid(item_key) then
 		local skin = savestring_data.skin
@@ -608,46 +609,60 @@ mod.create_saved_item = function(self, backend_id, savestring)
 			entry.mod_data.inventory_icon = WeaponSkins.skins[skin].inventory_icon
 		end
 
-		mod.more_items_library:add_mod_items_to_local_backend({entry}, "SaveWeapon")
-		Managers.backend:get_interface("items"):make_dirty()
-		Managers.backend:get_interface("items"):_refresh()
-
-		-- Mark as favorite if the save says so
-		if savestring_data.favorite then
-			-- Disable my hook momentarily so it won't catch this call
-			mod:hook_disable(ItemHelper, "mark_backend_id_as_favorite")
-			ItemHelper.mark_backend_id_as_favorite(new_backend_id)
-			mod:hook_enable(ItemHelper, "mark_backend_id_as_favorite")
-		end
-
-		--Ghetto fix for the no-skin loaded item crash
-		mod:pcall(function()
-			local backend_items = Managers.backend:get_interface("items")
-			local item = backend_items:get_item_from_id(new_backend_id)
-
-			-- Set item rarity based on mod setting
-			local rarity = mod:get("displayed_rarity")
-			item.rarity = rarity
-			item.data.rarity = rarity
-			item.CustomData.rarity = rarity
-
-			-- This should only occur if you use the weapon creator's default skin option.
-			if not skin then
-				item.skin = nil
-			end
+		-- Every crafted item must be saved and restored, regardless of whether the "filter"
+		-- setting was on when it was made (that setting only trims the weapon creator's
+		-- dropdown lists -- it has no bearing on what's valid to save or recreate). If
+		-- add_mod_items_to_local_backend still throws for some saved item, guard the creation
+		-- itself -- one bad item should never stop the rest of load_items from recreating
+		-- everything else -- and capture the real error so it can actually be diagnosed,
+		-- instead of guessing at the cause.
+		local create_error
+		item_created, create_error = pcall(function()
+			mod.more_items_library:add_mod_items_to_local_backend({entry}, "SaveWeapon")
+			Managers.backend:get_interface("items"):make_dirty()
+			Managers.backend:get_interface("items"):_refresh()
 		end)
 
-		-- Update UI
-		mod:pcall(function()
-			-- We check if we're in the Item Grid view - if yes, refresh the item backend and repopulate the inventory page
-			if mod.item_grid then
+		if item_created then
+			-- Mark as favorite if the save says so
+			if savestring_data.favorite then
+				-- Disable my hook momentarily so it won't catch this call
+				mod:hook_disable(ItemHelper, "mark_backend_id_as_favorite")
+				ItemHelper.mark_backend_id_as_favorite(new_backend_id)
+				mod:hook_enable(ItemHelper, "mark_backend_id_as_favorite")
+			end
+
+			--Ghetto fix for the no-skin loaded item crash
+			mod:pcall(function()
 				local backend_items = Managers.backend:get_interface("items")
-				backend_items:_refresh()
+				local item = backend_items:get_item_from_id(new_backend_id)
 
-				mod.item_grid:change_item_filter(mod.item_filter, false)
-				mod.item_grid:repopulate_current_inventory_page()
-			end
-		end)
+				-- Set item rarity based on mod setting
+				local rarity = mod:get("displayed_rarity")
+				item.rarity = rarity
+				item.data.rarity = rarity
+				item.CustomData.rarity = rarity
+
+				-- This should only occur if you use the weapon creator's default skin option.
+				if not skin then
+					item.skin = nil
+				end
+			end)
+
+			-- Update UI
+			mod:pcall(function()
+				-- We check if we're in the Item Grid view - if yes, refresh the item backend and repopulate the inventory page
+				if mod.item_grid then
+					local backend_items = Managers.backend:get_interface("items")
+					backend_items:_refresh()
+
+					mod.item_grid:change_item_filter(mod.item_filter, false)
+					mod.item_grid:repopulate_current_inventory_page()
+				end
+			end)
+		else
+			mod:echo('[SaveWeapon][ERROR] Failed to recreate "' .. mod:get_backend_save_id(backend_id) .. '" (skipped): ' .. tostring(create_error))
+		end
 	else
 		local error = '[SaveWeapon][ERROR] Failed to load item \"' .. mod:get_backend_save_id(backend_id) .. '\": invalid item key'
 		mod:echo(error)
@@ -668,7 +683,7 @@ mod.create_saved_item = function(self, backend_id, savestring)
 		mod:echo(error)
 	end
 
-	return mod:is_item_key_valid(item_key), savestring_data.errors
+	return item_created, savestring_data.errors
 end
 
 -- # Loads the saved items # --
@@ -747,7 +762,17 @@ mod.set_equipped_items_on_startup = function(self)
 				local current_item = current_backend_id and backend_items:get_item_from_id(current_backend_id)
 
 				if current_item and current_item.power_level == 5 then
-					backend_items:set_loadout_item(backend_id, career_name, slot_name)
+					-- Equipping a recreated item can still throw deep in the engine's own stat
+					-- calculations. Guard each item individually so one bad item doesn't abort the
+					-- whole startup loop -- taking the set_loadout_item hook below down with it,
+					-- which would silently break equip-tracking for the rest of the session -- and
+					-- capture the real error so the actual cause can be diagnosed.
+					local equipped_ok, equip_error = pcall(function()
+						backend_items:set_loadout_item(backend_id, career_name, slot_name)
+					end)
+					if not equipped_ok then
+						mod:echo("[SaveWeapon][ERROR] Failed to auto-equip \"" .. mod:get_backend_save_id(backend_id) .. "\" (" .. career_name .. ": " .. slot_name .. "): " .. tostring(equip_error))
+					end
 				end
 			end
 		end

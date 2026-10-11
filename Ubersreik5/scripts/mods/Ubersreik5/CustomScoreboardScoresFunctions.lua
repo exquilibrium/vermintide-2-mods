@@ -78,16 +78,23 @@ local IGNORED_FRIENDLY_FIRE_DAMAGE_TYPES = {
 
 -- victim_breed.boss is true for far more than the named Lords (trolls,
 -- minotaur, the boss-tier rat ogre, the elite Stormfiend, etc.) - this is
--- the actual Lord roster, keyed by breed.name, verified against
--- achievement_templates.lua's kill_bodvarr_burblespew/kill_skarrik_rasknitt
--- difficulty-rank checks (Rasknitt has two breeds, one per fight phase).
+-- the actual Lord roster, keyed by breed.name (the Breeds registration key -
+-- breeds.lua sets breed.name = key). Names must match Breeds.* exactly: the
+-- champion breeds are registered per map as chaos_exalted_champion_warcamp/
+-- _norsca in breed_chaos_exalted_champion.lua; there is no plain
+-- "chaos_exalted_champion" breed (that string is only an achievement stat
+-- name). Rasknitt has two breeds, one per fight phase. Same roster the
+-- original UbersreikFive tracked.
 local LORD_BREEDS = {
-	chaos_exalted_champion = true, -- Bodvarr Ribspreader
+	chaos_exalted_champion_warcamp = true, -- Warcamp boss (Bodvarr)
+	chaos_exalted_champion_norsca = true, -- Norsca champion (Skittergate)
+	chaos_spawn_exalted_champion_norsca = true, -- Norsca champion's Chaos Spawn
 	chaos_exalted_sorcerer = true, -- Burblespue Halescourge
 	chaos_exalted_sorcerer_drachenfels = true, -- Nurgloth
 	skaven_grey_seer = true, -- Rasknitt, phase 1
 	skaven_stormfiend_boss = true, -- Rasknitt, phase 2
 	skaven_storm_vermin_warlord = true, -- Skarrik Spinemanglr
+	skaven_storm_vermin_champion = true, -- Deathrattler
 }
 
 mod:hook_safe(StatisticsUtil, "register_kill", function (victim_unit, damage_data, statistics_db, is_server)
@@ -298,6 +305,13 @@ mod.clear_native_stats_snapshot = function (self)
 end
 
 mod:hook(StatisticsDatabase, "unregister", function (func, self, stats_id, ...)
+	-- Vanilla's get_stat indexes self.statistics[id] unguarded, so reading an
+	-- unregistered id would throw before func runs and skip the real
+	-- unregister. See README.md.
+	if not self:is_registered(stats_id) then
+		return func(self, stats_id, ...)
+	end
+
 	local snapshot = {}
 
 	for _, topic in ipairs(ScoreboardHelper.scoreboard_topic_stats) do
