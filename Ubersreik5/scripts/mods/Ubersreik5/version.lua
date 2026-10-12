@@ -4,8 +4,8 @@ local WORKSHOP_ITEM_ID = "3790000790"
 
 -- Unix timestamp (UTC) + 1000s (buffer)
 -- Timestamp below serves as marker for "_Version Mod.bat"
--- 2026-10-11 13:29 UTC
-local OUR_VERSION_TIMESTAMP = 1791725393
+-- 2026-10-12 12:32 UTC
+local OUR_VERSION_TIMESTAMP = 1791808350
 
 -- The "last_build" checkbox's displayed label (see Ubersreik5_data.lua -
 -- it's a no-op checkbox, not read anywhere, just a way to surface this as a

@@ -499,7 +499,7 @@ return {
 		en = "Sense Specials",
 	},
 	sense_specials_description = {
-		en = "Outlines every special until it dies, so you can tell where it is even without seeing it. The outline fades linearly with distance: 35% black beyond 50 meters, full color at 10 meters or closer. A player tag (ping) on the special takes over the outline color while it is tagged.",
+		en = "Outlines every special until it dies, so you can tell where it is even without seeing it. The outline fades linearly with distance: 35%% black beyond 50 meters, full color at 10 meters or closer. A player tag (ping) on the special takes over the outline color while it is tagged.",
 	},
 	outline_sensed_special_color_group = {
 		en = "Sensed Special Outline Color",
