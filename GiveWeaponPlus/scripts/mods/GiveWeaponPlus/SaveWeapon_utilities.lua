@@ -194,18 +194,25 @@ end
 -- # GENERATE SAVESTRING
 -- Generates a string for saving the item with
 -- It'll look something like this: "false/es_1h_mace_skin_02/swift_slaying/crit_chance/attack_speed"
+-- The weapon creator allows crafting with no skin, no trait and/or no properties, so each of those can be missing:
+--   no skin       -> "nil" segment (parse_savestring maps it back to the default skin)
+--   no trait      -> segment omitted entirely (parse_savestring then returns an empty traits table)
+--   no properties -> nothing appended
+-- e.g. a bare item with none of the three is just "false/nil"
 mod.generate_item_string = function(self, skin, trait, properties)
 	local item_string = "false" -- is favorite, false by default
-	
-	if skin == nil then
-		item_string = item_string .. "/" .. "nil" -- Will be "nil" for necklace/charm/trinket
+
+	if skin == nil or skin == "" then
+		item_string = item_string .. "/" .. "nil" -- Will be "nil" for necklace/charm/trinket, or weapons using the default skin
 	else
 		item_string = item_string .. "/" .. skin
 	end
-	
-	item_string = item_string .. "/" .. mod:trait_name_long2short(trait) -- Shorten trait name to a more concise string
-	
-	for _, prop_name in ipairs(properties) do
+
+	if trait ~= nil and trait ~= "" then
+		item_string = item_string .. "/" .. mod:trait_name_long2short(trait) -- Shorten trait name to a more concise string
+	end
+
+	for _, prop_name in ipairs(properties or {}) do
 		item_string = item_string .. "/" .. prop_name
 	end
 	

@@ -161,7 +161,11 @@ mod:hook_safe(StatisticsUtil, "register_damage", function (victim_unit, damage_d
 	local victim_health_extension = ScriptUnit.has_extension(victim_unit, "health_system")
 
 	if victim_health_extension then
-		damage_amount = math.clamp(raw_damage_amount, 0, victim_health_extension:current_health())
+		-- current_health can already be <= 0 here (register_damage runs before the
+		-- damage is applied, and a DoT tick can land on a victim whose health was
+		-- already depleted). math.clamp returns `max` whenever max < value, so an
+		-- unfloored negative health would yield a negative damage_amount.
+		damage_amount = math.clamp(raw_damage_amount, 0, math.max(victim_health_extension:current_health(), 0))
 	end
 
 	local overkill_amount = raw_damage_amount - damage_amount

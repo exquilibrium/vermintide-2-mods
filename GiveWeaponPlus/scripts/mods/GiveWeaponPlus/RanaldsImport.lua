@@ -348,12 +348,13 @@ end
 -- identical item (same item_key, same trait+properties+skin) has already been crafted and saved.
 -- Returns the item's backend_id and whether it was newly crafted (false if reused).
 mod.craft_or_reuse_item = function(self, item_key, trait_key, property_keys, skin)
-	-- generate_item_string concatenates the (shortened) trait name directly, which errors on a
-	-- nil trait -- pass "" instead, which round-trips safely (just resolves to "no trait" on load).
-	local savestring = mod:generate_item_string(skin, trait_key or "", property_keys)
+	-- generate_item_string omits the trait segment when trait_key is nil (no-trait items)
+	local savestring = mod:generate_item_string(skin, trait_key, property_keys)
 
 	for save_id, existing_savestring in pairs(mod.saved_items) do
-		if existing_savestring == savestring then
+		-- Older no-trait saves were written with an empty trait segment ("false/nil//crit_chance");
+		-- collapse repeated slashes so those still match the current format ("false/nil/crit_chance")
+		if string.gsub(existing_savestring, "/+", "/") == savestring then
 			local backend_id = save_id .. "_from_GiveWeapon"
 			if mod:get_item_name_from_save_id(backend_id) == item_key then
 				if not mod:verify_backend_id(backend_id) then

@@ -742,6 +742,7 @@ mod.set_equipped_items_on_startup = function(self)
 	--]]
 	local backend_items = Managers.backend:get_interface("items")
 	local loadouts = backend_items._loadouts
+	local forgot_stale_ids = false
 
 	-- Loop through all career names and lots
 	for career_name, slots in pairs(mod.last_equipped_items) do
@@ -753,7 +754,22 @@ mod.set_equipped_items_on_startup = function(self)
 			if not mod:is_backend_id_from_mod(backend_id) then
 				-- skip silently, not an error -- just a leftover from an older mod version
 			elseif not mod:verify_backend_id(backend_id) then
-				mod:echo("[SaveWeapon][ERROR] Previous session's equipped item ID is invalid (" .. career_name .. ": " .. backend_id .. ")")
+				if mod:get_backend_id_suffix(backend_id) == "_from_GiveWeapon" then
+					-- A GiveWeapon item that doesn't exist now can never come back: load_items has already
+					-- recreated everything in saved_items. Forget it so it doesn't error on every launch.
+					-- (Assigning nil to an existing field during pairs() is safe in Lua.)
+					slots[slot_name] = nil
+					forgot_stale_ids = true
+
+					-- An item that was equipped but never saved (auto_save off and never /sw_save'd) is
+					-- expected to be gone, so stay quiet. Only report it if it *was* saved -- then
+					-- create_saved_item already echoed why recreating it failed.
+					if mod.saved_items[mod:get_backend_save_id(backend_id)] then
+						mod:echo("[SaveWeapon][ERROR] Could not re-equip saved item (" .. career_name .. ": " .. backend_id .. ") -- it failed to load")
+					end
+				else
+					mod:echo("[SaveWeapon][ERROR] Previous session's equipped item ID is invalid (" .. career_name .. ": " .. backend_id .. ")")
+				end
 			else
 				-- Only auto-equip into a slot that's still at its blacksmith default (power level 5,
 				-- i.e. nothing meaningful equipped there) -- if the player has since equipped a real
@@ -776,6 +792,10 @@ mod.set_equipped_items_on_startup = function(self)
 				end
 			end
 		end
+	end
+
+	if forgot_stale_ids then
+		mod:set("last_equipped_items", mod.last_equipped_items)
 	end
 end
 
@@ -855,10 +875,12 @@ mod:hook_safe(mod.more_items_library, "add_mod_items_to_local_backend", function
 			local item = items[item_num]
 
 			local name = item.name
+			-- Skin, trait and properties can each be absent (the weapon creator allows crafting without any of them);
+			-- generate_item_string handles nil skin/trait and an empty property list
 			local skin = item.mod_data.skin
-			local trait = item.mod_data.traits[1]
+			local trait = (item.mod_data.traits or {})[1]
 			local properties = {}
-			for key, _ in pairs(item.mod_data.properties) do
+			for key, _ in pairs(item.mod_data.properties or {}) do
 				table.insert(properties, 1, key)
 			end
 
